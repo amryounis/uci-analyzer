@@ -1,0 +1,16 @@
+[package]
+name = "uci-shim"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Transparent UCI wrapper: forwards GUI <-> engine traffic and records a transcript"
+
+# Binaries (all std-only, no dependencies beyond uci-core):
+#   uci-shim          the wrapper a host GUI launches as if it were the engine
+#   uci-fake-engine   a tiny scripted UCI engine for tests and demos
+#   uci-latency       measures isready round-trip time, direct vs through the shim
+
+[dependencies]
+uci-core = { path = "../uci-core" }

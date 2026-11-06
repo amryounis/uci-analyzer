@@ -1,0 +1,37 @@
+# Copy this file next to uci-shim.exe and rename it to match the exe:
+#   uci-shim.exe  ->  uci-shim.cfg
+#   stockfish-shim.exe  ->  stockfish-shim.cfg
+# One exe + one cfg per engine you want to watch.
+#
+# Lines are key=value. Lines starting with # are comments.
+
+# Full path to the real engine (required). Spaces are fine, no quotes needed.
+engine=C:\Engines\stockfish\stockfish.exe
+
+# Arguments passed to the engine (optional). Use "double quotes" around any
+# argument that contains spaces.
+#args=
+
+# Where transcripts are written (optional).
+# Default on Windows: %LOCALAPPDATA%\uci-visualizer\transcripts
+#log_dir=C:\Users\you\uci-transcripts
+
+# Set to off to disable transcript logging (optional, default on).
+#log=on
+
+# Let uci-viewer watch live (optional, default on). Set to off to run the shim
+# as a plain pass-through that only writes the transcript.
+#viewer=on
+
+# Let uci-viewer send commands you type into its entry box to the engine
+# (optional, default on). Set to off to make the viewer strictly read-only.
+# Same as the --no-input switch.
+#input=on
+
+# Port for the live server (optional, default: the system picks a free one,
+# and uci-viewer finds it by itself).
+#viewer_port=0
+
+# After the host GUI closes the shim's input, how long the engine gets to exit
+# on its own before the shim kills it (optional, default 2000).
+#eof_grace_ms=2000

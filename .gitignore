@@ -1,0 +1,4 @@
+/target
+*.jsonl
+# your own shim settings (uci-shim.cfg.example is the template)
+*.cfg

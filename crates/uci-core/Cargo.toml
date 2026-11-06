@@ -1,0 +1,10 @@
+[package]
+name = "uci-core"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "UCI protocol parser and transcript format shared by the shim and the viewer"
+
+[dependencies]

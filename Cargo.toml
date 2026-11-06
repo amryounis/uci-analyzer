@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = ["crates/uci-core", "crates/uci-shim", "crates/uci-viewer", "crates/uci-replay"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+repository = "https://github.com/amryounis/uci-analyzer"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

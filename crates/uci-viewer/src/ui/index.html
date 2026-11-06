@@ -1,0 +1,1995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>UCI Analyzer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0a0e13; --panel: #10161d; --panel2: #0d1218; --line: #1c2631; --line2: #263341;
+  --text: #cfd9e4; --dim: #6c7b8d; --faint: #3b4856;
+  --g2e: #f5a524; --e2g: #3ddc97; --err: #ff5c6c; --shim: #a48cff; --v2e: #36c5f0;
+  --sel: #16324a; --hover: #131c26;
+  --btn-hover-bg: #151e28; --btn-hover-border: #3a4b5e;
+  --on-bg: #12304a; --on-border: #2b6a9e; --on-text: #dff0ff; --focus: #3b86c6;
+  --brand: #9fb4c8; --fg-live: #06140d; --fg-paused: #1c1200; --fg-err: #1a0004;
+  --scope-bg: #080b10; --scope-lane: #0c1219; --scope-grid: #141d27; --scope-grid2: #1a2531;
+  --scope-text: #4b5a6b; --scope-text2: #3b4856; --scope-eval: #8fb4d9; --scope-cursor: #ffffff;
+  --tip-bg: #0f1a25; --tip-border: #2b6a9e; --chip-on-border: #34475a;
+  --row-text: #b8c5d3; --row-err: #ffb0b8; --row-shim: #cdbfff; --row-v2e: #aee6ff;
+  --code-text: #bbccdd; --jump-shadow: #0008; --pos: #6fe0a8; --neg: #ff8b97;
+  --mv-first-border: #2d7a5a; --asc: #9fb2c6; --link: #6db3ff; --toast-bg: #12304a;
+  --sb-thumb: #1d2935; --sb-thumb-hover: #2a3a4a;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+  --ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f3f5f8; --panel: #ffffff; --panel2: #f7f9fb; --line: #e0e6ed; --line2: #cdd6e0;
+  --text: #1c2733; --dim: #5b6b7d; --faint: #8d9bab;
+  --g2e: #b36a00; --e2g: #0c8a5c; --err: #cf2a3b; --shim: #6a4cd0; --v2e: #0a78b5;
+  --sel: #d3e7fa; --hover: #eaf1f8;
+  --btn-hover-bg: #eef3f8; --btn-hover-border: #aebccb;
+  --on-bg: #dcecfb; --on-border: #5a9ad0; --on-text: #0b3a63; --focus: #3b86c6;
+  --brand: #4a6178; --fg-live: #ffffff; --fg-paused: #ffffff; --fg-err: #ffffff;
+  --scope-bg: #fbfcfd; --scope-lane: #f0f3f7; --scope-grid: #e3e9ef; --scope-grid2: #d9e1ea;
+  --scope-text: #7c8a9a; --scope-text2: #98a5b4; --scope-eval: #2e6fb3; --scope-cursor: #0f1c2a;
+  --tip-bg: #ffffff; --tip-border: #5a9ad0; --chip-on-border: #9fb4c8;
+  --row-text: #26333f; --row-err: #b3202f; --row-shim: #5a3fc0; --row-v2e: #0a5f8f;
+  --code-text: #26425c; --jump-shadow: #0003; --pos: #0c7a52; --neg: #c92a3b;
+  --mv-first-border: #7fc3a6; --asc: #3d5166; --link: #1769c2; --toast-bg: #dcecfb;
+  --sb-thumb: #c5d0dc; --sb-thumb-hover: #aab8c7;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 var(--ui); overflow: hidden; }
+body { display: flex; flex-direction: column; }
+button, select, input { font: inherit; color: inherit; }
+button { background: var(--panel); border: 1px solid var(--line2); border-radius: 5px; padding: 3px 10px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--btn-hover-border); background: var(--btn-hover-bg); }
+button:disabled, input:disabled { opacity: .45; cursor: not-allowed; }
+button.on { background: var(--on-bg); border-color: var(--on-border); color: var(--on-text); }
+select, input[type=text] { background: var(--panel2); border: 1px solid var(--line2); border-radius: 5px; padding: 3px 8px; outline: none; }
+select:focus, input:focus, button:focus-visible { border-color: var(--focus); }
+
+/* ---------- header ---------- */
+header { display: flex; align-items: center; gap: 12px; padding: 0 12px; height: 44px; background: var(--panel); border-bottom: 1px solid var(--line); flex: none; }
+.brand { font-weight: 700; letter-spacing: .08em; font-size: 12px; color: var(--brand); white-space: nowrap; }
+.brand b { color: var(--e2g); }
+#session { min-width: 280px; max-width: 46vw; }
+.pill { font: 700 11px var(--mono); letter-spacing: .08em; padding: 2px 9px; border-radius: 10px; border: 1px solid var(--line2); color: var(--dim); white-space: nowrap; }
+.pill.live { color: var(--fg-live); background: var(--e2g); border-color: var(--e2g); }
+.pill.live::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--fg-live); margin-right: 6px; animation: blink 1.2s infinite; }
+.pill.paused { color: var(--fg-paused); background: var(--g2e); border-color: var(--g2e); }
+.pill.ended { color: var(--text); }
+.pill.err { color: var(--fg-err); background: var(--err); border-color: var(--err); }
+@keyframes blink { 50% { opacity: .25; } }
+.spacer { flex: 1; }
+.stat { font: 12px var(--mono); color: var(--dim); white-space: nowrap; }
+.stat b { color: var(--text); font-weight: 600; }
+
+/* ---------- scope ---------- */
+#scopeWrap { position: relative; height: 176px; flex: none; background: var(--scope-bg); border-bottom: 1px solid var(--line); }
+#scope { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+#scopeCtl { position: absolute; right: 10px; top: 6px; display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--dim); }
+#scopeCtl select { font-size: 11px; padding: 1px 4px; }
+#tip { position: absolute; pointer-events: none; display: none; background: var(--tip-bg); border: 1px solid var(--tip-border); border-radius: 4px; padding: 4px 8px; font: 12px var(--mono); max-width: 60ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 5; }
+
+/* ---------- filter bar ---------- */
+#filters { display: flex; align-items: center; gap: 14px; padding: 6px 12px; background: var(--panel); border-bottom: 1px solid var(--line); flex: none; flex-wrap: wrap; }
+.grp { display: flex; align-items: center; gap: 4px; }
+.grp > label.cap { color: var(--faint); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; margin-right: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border: 1px solid var(--line2); border-radius: 11px; cursor: pointer; user-select: none; font-size: 12px; color: var(--dim); background: var(--panel2); }
+.chip i { width: 8px; height: 8px; border-radius: 2px; background: var(--c, #888); opacity: .35; }
+.chip.on { color: var(--text); border-color: var(--chip-on-border); }
+.chip.on i { opacity: 1; }
+#q { width: 220px; }
+#shown { margin-left: auto; font: 12px var(--mono); color: var(--dim); }
+
+/* ---------- main ---------- */
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 460px; grid-template-rows: minmax(0, 1fr); }
+#listPane { position: relative; min-width: 0; min-height: 0; overflow: hidden; border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+#colHead { display: grid; grid-template-columns: 62px 84px 54px 96px 1fr; gap: 0; height: 24px; align-items: center; background: var(--panel); border-bottom: 1px solid var(--line); color: var(--faint); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; flex: none; padding-right: 12px; }
+#colHead span { padding: 0 8px; }
+#colHead .r { text-align: right; }
+#colHead .tog { margin-left: auto; display: flex; gap: 0; padding: 0; }
+#colHead .tog button { padding: 0 8px; font-size: 10px; border-radius: 0; height: 18px; line-height: 16px; }
+#colHead .tog button:first-child { border-radius: 4px 0 0 4px; }
+#colHead .tog button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+#text { display: flex; align-items: center; }
+#scroller { position: relative; flex: 1; overflow-y: scroll; overflow-x: hidden; min-height: 0; background: var(--bg); }
+#rows { position: relative; }
+.row { position: absolute; left: 0; right: 0; height: 22px; display: grid; grid-template-columns: 62px 84px 54px 96px 1fr; align-items: center; font: 12px var(--mono); cursor: default; border-left: 3px solid transparent; }
+.row:hover { background: var(--hover); }
+.row.sel { background: var(--sel); }
+.row.g2e { border-left-color: var(--g2e); }
+.row.e2g { border-left-color: var(--e2g); }
+.row.err { border-left-color: var(--err); }
+.row.shim { border-left-color: var(--shim); }
+.row > span { padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .n { text-align: right; color: var(--faint); }
+.row .t { text-align: right; color: var(--dim); }
+.row .d { font-weight: 700; }
+.row.g2e .d { color: var(--g2e); }
+.row.e2g .d { color: var(--e2g); }
+.row.err .d { color: var(--err); }
+.row.shim .d { color: var(--shim); }
+.row .tag { color: var(--c, var(--dim)); }
+.row .x { color: var(--row-text); }
+.row.err .x { color: var(--row-err); }
+.row.shim .x { color: var(--row-shim); font-style: italic; }
+.row.v2e { border-left-color: var(--v2e); }
+.row.v2e .d { color: var(--v2e); }
+.row.v2e .x { color: var(--row-v2e); }
+#empty { position: absolute; inset: 24px 0 0 0; display: none; align-items: center; justify-content: center; text-align: center; color: var(--dim); padding: 30px; }
+#empty div { max-width: 52ch; line-height: 1.7; }
+#empty h2 { margin: 0 0 8px; font-size: 15px; color: var(--text); font-weight: 600; }
+#empty code { font: 12px var(--mono); background: var(--panel); border: 1px solid var(--line2); padding: 1px 6px; border-radius: 4px; color: var(--code-text); }
+#jump { position: absolute; right: 22px; bottom: 100px; display: none; background: var(--on-bg); border-color: var(--on-border); color: var(--on-text); box-shadow: 0 4px 14px var(--jump-shadow); z-index: 4; }
+
+/* ---------- manual entry ---------- */
+#console { flex: none; border-top: 1px solid var(--line); background: var(--panel); padding: 8px 10px 6px; }
+#cmdRow { display: flex; align-items: center; gap: 8px; }
+#cmdRow .prompt { font: 700 11px var(--mono); letter-spacing: .08em; color: var(--v2e); white-space: nowrap; }
+#cmd { flex: 1; min-width: 0; font: 13px var(--mono); padding: 5px 9px; }
+#cmdSub { display: flex; align-items: center; gap: 6px; margin-top: 6px; min-height: 24px; flex-wrap: wrap; }
+#cmdSub button { font: 11px var(--mono); padding: 1px 8px; }
+#cmdNote { margin-left: auto; font-size: 11px; color: var(--dim); text-align: right; max-width: 48ch; }
+#cmdNote.bad { color: var(--err); }
+
+/* ---------- detail ---------- */
+#detail { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--panel2); }
+#tabs { display: flex; gap: 2px; padding: 6px 8px 0; background: var(--panel); border-bottom: 1px solid var(--line); flex: none; }
+#tabs button { border-radius: 5px 5px 0 0; border-bottom: 0; background: transparent; border-color: transparent; color: var(--dim); padding: 4px 12px; }
+#tabs button.on { background: var(--panel2); border-color: var(--line2); color: var(--text); }
+#pane { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px 20px; }
+.head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.head .big { font: 700 15px var(--mono); }
+.head .meta { color: var(--dim); font: 12px var(--mono); }
+.sentence { padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 12px; line-height: 1.5; }
+table.kv { border-collapse: collapse; width: 100%; font: 12px var(--mono); }
+table.kv td { padding: 3px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.kv td:first-child { color: var(--dim); width: 32%; white-space: nowrap; }
+table.kv.wide td:first-child { width: auto; }
+.mv { display: inline-block; padding: 0 5px; margin: 1px 2px 1px 0; border: 1px solid var(--line2); border-radius: 3px; background: var(--panel); font: 12px var(--mono); }
+.mv.first { border-color: var(--mv-first-border); color: var(--e2g); }
+.pos { color: var(--pos); } .neg { color: var(--neg); }
+pre.raw { margin: 0 0 12px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; font: 12px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; }
+.hex { font: 12px/1.6 var(--mono); white-space: pre; color: var(--dim); }
+.hex .off { color: var(--faint); } .hex .asc { color: var(--asc); }
+.sub { margin: 16px 0 6px; color: var(--faint); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+.none { color: var(--dim); padding: 18px 4px; }
+a { color: var(--link); }
+.dflt { color: var(--faint); }
+.chg { color: var(--g2e); }
+
+footer { height: 24px; display: flex; align-items: center; gap: 16px; padding: 0 12px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); font: 11px var(--mono); flex: none; overflow: hidden; white-space: nowrap; }
+footer kbd { background: var(--panel2); border: 1px solid var(--line2); border-radius: 3px; padding: 0 4px; color: var(--text); }
+#loadWrap { position: fixed; inset: 0; background: #0007; display: none; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 30; }
+#loadWrap.open { display: flex; }
+#loadBox { width: min(620px, 92vw); background: var(--panel); border: 1px solid var(--line2); border-radius: 8px; padding: 16px 18px 14px; box-shadow: 0 12px 40px var(--jump-shadow); }
+#loadBox h3 { margin: 0 0 4px; font-size: 15px; }
+#loadBox p { margin: 0 0 12px; color: var(--dim); line-height: 1.5; }
+#loadBox label { display: block; margin: 10px 0 4px; color: var(--dim); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+#loadBox .line { display: flex; gap: 8px; }
+#loadBox input[type=text] { flex: 1; min-width: 0; padding: 6px 8px; font-family: var(--mono); font-size: 12px; }
+#ldRecent { margin-top: 12px; max-height: 150px; overflow: auto; border: 1px solid var(--line); border-radius: 5px; }
+#ldRecent:empty { display: none; }
+#ldRecent button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 5px 8px; font: 12px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#ldRecent button:last-child { border-bottom: 0; }
+#ldRecent b { color: var(--text); font-weight: 600; }
+#ldRecent span { color: var(--dim); }
+#ldNote { min-height: 18px; margin-top: 10px; color: var(--dim); }
+#ldNote.bad { color: var(--err); }
+#loadBox .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+#emptyLoad { margin-top: 12px; padding: 5px 14px; }
+#rx .rxrow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+#rx select { width: 100%; min-width: 0; }
+#rx .rxline { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+#rx .rxd { font: 700 15px var(--mono); color: var(--dim); }
+#rxPat { flex: 1; min-width: 0; font: 12px/1.45 var(--mono); padding: 6px 8px; resize: none; overflow: hidden; word-break: break-all; background: var(--panel2); border: 1px solid var(--line2); border-radius: 5px; outline: none; color: inherit; }
+#rxPat:focus { border-color: var(--focus); }
+#rx .rxline { align-items: flex-start; }
+#rx .rxd { padding-top: 4px; }
+#rxFlags { width: 56px; font: 12px var(--mono); padding: 6px 6px; }
+#rx .rxpin { color: var(--dim); font-size: 12px; cursor: pointer; }
+#rx .rxbtns button { padding: 2px 8px; font-size: 12px; }
+#rxStatus { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line2); margin-bottom: 6px; font-size: 12px; }
+#rxStatus.ok { border-color: var(--mv-first-border); color: var(--pos); }
+#rxStatus.bad { border-color: var(--err); color: var(--err); }
+#rxStatus.none-m { color: var(--dim); }
+#rxTest { margin-bottom: 4px; }
+#rxTest mark { color: inherit; border-radius: 3px; padding: 1px 0; }
+mark.m0, .sw.m0 { background: rgba(120,160,210,.22); box-shadow: inset 0 -2px 0 rgba(120,160,210,.7); }
+mark.m1, .sw.m1 { background: rgba(120,160,210,.36); box-shadow: inset 0 -2px 0 rgba(120,160,210,.9); }
+mark.g1, .sw.g1 { background: rgba(245,165,36,.38); box-shadow: inset 0 -2px 0 #f5a524; }
+mark.g2, .sw.g2 { background: rgba(61,220,151,.34); box-shadow: inset 0 -2px 0 #2fbf82; }
+mark.g3, .sw.g3 { background: rgba(54,197,240,.34); box-shadow: inset 0 -2px 0 #36c5f0; }
+mark.g4, .sw.g4 { background: rgba(164,140,255,.38); box-shadow: inset 0 -2px 0 #a48cff; }
+mark.g5, .sw.g5 { background: rgba(255,92,108,.34); box-shadow: inset 0 -2px 0 #ff5c6c; }
+mark.g6, .sw.g6 { background: rgba(232,212,77,.40); box-shadow: inset 0 -2px 0 #d4bd2e; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.dim { color: var(--dim); }
+#rxInfo table { margin-bottom: 8px; }
+#rxInfo td { word-break: break-all; }
+.rxe { display: flex; gap: 10px; align-items: baseline; padding: 2px 0; font-size: 12px; line-height: 1.5; }
+.rxe code { flex: none; font: 12px var(--mono); background: var(--panel); border: 1px solid var(--line2); border-radius: 4px; padding: 0 5px; color: var(--code-text); max-width: 55%; overflow-wrap: anywhere; }
+.rxe span { color: var(--dim); }
+#rxAcross .rxbtns { margin-top: 6px; display: flex; }
+#rxAcross button { padding: 2px 10px; font-size: 12px; }
+#rxTag { margin-left: 6px; padding: 2px 8px; font-size: 11px; background: var(--on-bg); border-color: var(--on-border); color: var(--on-text); }
+#toast { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); background: var(--toast-bg); color: var(--on-text); border: 1px solid var(--on-border); padding: 6px 14px; border-radius: 6px; display: none; z-index: 20; }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--sb-thumb); border: 3px solid var(--bg); border-radius: 7px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover); }
+@media (max-width: 1100px) { main { grid-template-columns: minmax(0, 1fr) 340px; } #session { min-width: 160px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">UCI <b>ANALYZER</b></div>
+  <select id="session" title="Which session to look at"></select>
+  <button id="bLoad" title="Start an engine from here and talk to it (L)">Load engine…</button>
+  <span id="state" class="pill">IDLE</span>
+  <span class="spacer"></span>
+  <span class="stat">packets <b id="sPackets">0</b></span>
+  <span class="stat"><b id="sRate">0</b>/s</span>
+  <span class="stat"><b id="sBytes">0 B</b></span>
+  <button id="bPause" title="Freeze the screen; traffic keeps being recorded (Space)">Pause</button>
+  <button id="bFollow" class="on" title="Keep the newest packet in view (F)">Follow</button>
+  <button id="bTheme" title="Switch between dark and light (T)">Light</button>
+</header>
+
+<div id="scopeWrap">
+  <canvas id="scope"></canvas>
+  <div id="scopeCtl">
+    <span>window</span>
+    <select id="win">
+      <option value="0">whole session</option>
+      <option value="5000">last 5 s</option>
+      <option value="30000" selected>last 30 s</option>
+      <option value="120000">last 2 min</option>
+    </select>
+  </div>
+  <div id="tip"></div>
+</div>
+
+<div id="filters">
+  <div class="grp"><label class="cap">direction</label><span id="dirChips"></span></div>
+  <div class="grp"><label class="cap">type</label><span id="grpChips"></span></div>
+  <div class="grp"><input id="q" type="text" placeholder="search  ( / )" spellcheck="false" autocomplete="off"><button id="rxTag" style="display:none">regex filter ✕</button></div>
+  <span id="shown"></span>
+</div>
+
+<main>
+  <section id="listPane">
+    <div id="colHead">
+      <span class="r">#</span><span class="r">TIME&nbsp;(s)</span><span>DIR</span><span>TYPE</span>
+      <span id="text">CONTENT
+        <span class="tog" style="margin-left:auto">
+          <button id="vRaw" class="on" title="Show the line exactly as sent">raw</button><button id="vDec" title="Show a plain-English reading of each line">decoded</button>
+        </span>
+      </span>
+    </div>
+    <div id="scroller"><div id="rows"></div></div>
+    <div id="empty"><div id="emptyBody"></div></div>
+    <button id="jump">↓ latest</button>
+    <div id="console">
+      <div id="cmdRow">
+        <span class="prompt">YOU ▸</span>
+        <input id="cmd" type="text" list="cmdlist" placeholder="type a UCI command and press Enter, for example: isready" spellcheck="false" autocomplete="off">
+        <button id="bSend" title="Send to the engine (Enter)">Send</button>
+        <datalist id="cmdlist"></datalist>
+      </div>
+      <div id="cmdSub">
+        <button class="quick" data-cmd="isready">isready</button>
+        <button class="quick" data-cmd="uci">uci</button>
+        <button class="quick" data-cmd="ucinewgame">ucinewgame</button>
+        <button class="quick" data-cmd="go infinite">go infinite</button>
+        <button class="quick" data-cmd="stop">stop</button>
+        <button class="quick" data-cmd="quit">quit</button>
+        <span id="cmdNote"></span>
+      </div>
+    </div>
+  </section>
+
+  <aside id="detail">
+    <div id="tabs">
+      <button data-tab="decoded" class="on">Decoded</button>
+      <button data-tab="raw">Raw</button>
+      <button data-tab="hex">Hex</button>
+      <button data-tab="options">Options</button>
+      <button data-tab="session">Session</button>
+      <button data-tab="regex" title="A regular expression that matches the selected line (6)">Regex</button>
+    </div>
+    <div id="pane"></div>
+  </aside>
+</main>
+
+<footer>
+  <span id="fSel">no packet selected</span>
+  <span class="spacer"></span>
+  <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
+  <span><kbd>F</kbd> follow</span>
+  <span><kbd>Space</kbd> pause</span>
+  <span><kbd>/</kbd> search</span>
+  <span><kbd>L</kbd> load engine</span>
+  <span><kbd>C</kbd> command</span>
+  <span><kbd>T</kbd> theme</span>
+  <span><kbd>1</kbd>–<kbd>6</kbd> tabs</span>
+</footer>
+<div id="loadWrap">
+  <div id="loadBox" role="dialog" aria-modal="true" aria-label="Load an engine">
+    <h3>Load an engine</h3>
+    <p>Starts the engine through the shim and shows the conversation here. You are the chess program: type commands in the box under the packet list.</p>
+    <label for="ldPath">Engine program</label>
+    <div class="line">
+      <input type="text" id="ldPath" spellcheck="false" autocomplete="off" placeholder="C:\Engines\stockfish\stockfish.exe">
+      <button id="ldBrowse" title="Choose the file in a dialog">Browse…</button>
+    </div>
+    <label for="ldArgs">Arguments (optional)</label>
+    <input type="text" id="ldArgs" spellcheck="false" autocomplete="off" style="width:100%">
+    <div id="ldRecent"></div>
+    <div id="ldNote"></div>
+    <div class="actions"><button id="ldCancel">Cancel</button><button id="ldGo" class="on">Load</button></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const TOKEN = "__UCI_TOKEN__";
+// ======================================================================
+// constants
+// ======================================================================
+const ROW = 22;
+const DIRS = [
+  { key: "gui>engine",    label: "GUI → Engine", short: "GUI→",  cls: "g2e",  color: "#f5a524" },
+  { key: "viewer>engine", label: "You → Engine (typed)", short: "YOU→", cls: "v2e", color: "#36c5f0" },
+  { key: "engine>gui",    label: "Engine → GUI", short: "←ENG",  cls: "e2g",  color: "#3ddc97" },
+  { key: "engine>stderr", label: "stderr",       short: "ERR",   cls: "err",  color: "#ff5c6c" },
+  { key: "shim",          label: "shim notes",   short: "SHIM",  cls: "shim", color: "#a48cff" },
+];
+const DIRBY = Object.fromEntries(DIRS.map(d => [d.key, d]));
+const GROUPS = [
+  { key: "info",      label: "info",      color: "#5b8bc4" },
+  { key: "bestmove",  label: "bestmove",  color: "#3ddc97" },
+  { key: "go",        label: "go",        color: "#f5a524" },
+  { key: "position",  label: "position",  color: "#e6c15a" },
+  { key: "options",   label: "options",   color: "#2fc4c4" },
+  { key: "handshake", label: "handshake", color: "#b794f6" },
+  { key: "other",     label: "other",     color: "#8b98a9" },
+];
+const GRPBY = Object.fromEntries(GROUPS.map(g => [g.key, g]));
+const GROUP_OF = {
+  info: "info", bestmove: "bestmove", go: "go", position: "position",
+  option: "options", setoption: "options",
+  uci: "handshake", uciok: "handshake", id: "handshake", isready: "handshake",
+  readyok: "handshake", ucinewgame: "handshake",
+};
+let ERRCOL = "#ff5c6c", SHIMCOL = "#a48cff", V2ECOL = "#36c5f0";
+// A packet that carries a UCI command or reply (as opposed to stderr or a shim note).
+const isMsgDir = d => d === "gui>engine" || d === "engine>gui" || d === "viewer>engine";
+// Commands come from the host GUI or from the person at the viewer.
+const fromHost = d => d === "gui>engine" || d === "viewer>engine";
+
+const PAL = {
+  dark: {
+    dirs: { "gui>engine": "#f5a524", "viewer>engine": "#36c5f0", "engine>gui": "#3ddc97", "engine>stderr": "#ff5c6c", shim: "#a48cff" },
+    groups: { info: "#5b8bc4", bestmove: "#3ddc97", go: "#f5a524", position: "#e6c15a", options: "#2fc4c4", handshake: "#b794f6", other: "#8b98a9" },
+  },
+  light: {
+    dirs: { "gui>engine": "#b36a00", "viewer>engine": "#0a78b5", "engine>gui": "#0c8a5c", "engine>stderr": "#cf2a3b", shim: "#6a4cd0" },
+    groups: { info: "#2f6db5", bestmove: "#0c8a5c", go: "#b36a00", position: "#977800", options: "#0c8a8a", handshake: "#7a4fd0", other: "#5b6b7d" },
+  },
+};
+let SC = {};   // scope colours, read from the stylesheet whenever the theme changes
+
+// ======================================================================
+// state
+// ======================================================================
+const S = {
+  events: [],        // every packet received, in order (index === packet number)
+  view: [],          // indexes into events that pass the filters
+  queue: [],         // received but not yet shown (while paused)
+  paused: false,
+  follow: true,
+  sel: -1,           // selected packet, -1 = none
+  tab: "decoded",
+  rowMode: "raw",
+  attached: null,    // {kind:"live"|"file", id, es, meta, state}
+  userPicked: false,
+  bytes: 0,
+  ratePts: [],
+  dirty: { list: true, scope: true, detail: true },
+  options: new Map(),   // name -> {decl, current}
+  ident: {},            // id name / author
+  stats: { goCount: 0, lastInfo: null, lastBest: null, perType: {} },
+  seenLive: new Set(),
+};
+const F = { dirs: {}, groups: {}, q: "", rx: null, rxText: "" };
+DIRS.forEach(d => F.dirs[d.key] = true);
+GROUPS.forEach(g => F.groups[g.key] = true);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const basename = p => String(p || "").split(/[\\/]/).pop();
+const fmtT = ms => (ms / 1000).toFixed(3);
+function fmtBytes(n) {
+  if (n < 1024) return n + " B";
+  if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+  return (n / 1048576).toFixed(1) + " MB";
+}
+const fmtN = n => n == null ? "" : Number(n).toLocaleString("en-US");
+function fmtScore(sc) {
+  if (!sc) return "";
+  if (sc.kind === "mate") return "#" + sc.value;
+  const v = sc.value / 100;
+  return (v > 0 ? "+" : "") + v.toFixed(2);
+}
+
+// ======================================================================
+// packet classification and ingest
+// ======================================================================
+function classify(ev) {
+  if (ev.dir === "engine>stderr") { ev.type = "stderr"; ev.group = "other"; return; }
+  if (ev.dir === "shim") { ev.type = "shim"; ev.group = "other"; return; }
+  const t = ev.msg ? ev.msg.type : "unknown";
+  ev.type = t === "unknown" ? "raw" : t;
+  ev.group = GROUP_OF[t] || "other";
+}
+
+function passes(ev) {
+  if (!F.dirs[ev.dir]) return false;
+  // stderr and shim notes are not part of the "type" chips; they follow their direction chip.
+  if (isMsgDir(ev.dir)) {
+    if (!F.groups[ev.group]) return false;
+  }
+  if (F.q) {
+    if (ev._lc === undefined) ev._lc = ev.line.toLowerCase();
+    if (!ev._lc.includes(F.q)) return false;
+  }
+  if (F.rx && !F.rx.test(ev.line)) return false;
+  return true;
+}
+
+function ingest(ev) {
+  classify(ev);
+  const idx = S.events.length;
+  ev.i = idx;
+  S.events.push(ev);
+  S.bytes += ev.line.length + 1;
+  S.ratePts.push(performance.now());
+  S.stats.perType[ev.type] = (S.stats.perType[ev.type] || 0) + 1;
+  const m = ev.msg;
+  if (m) {
+    if (m.type === "option" || m.type === "setoption") S.optDirty = true;
+    if (m.type === "option" && ev.dir === "engine>gui") {
+      const o = S.options.get(m.name) || { decl: null, current: undefined, setAt: null };
+      o.decl = m; S.options.set(m.name, o);
+    } else if (m.type === "setoption") {
+      const o = S.options.get(m.name) || { decl: null, current: undefined, setAt: null };
+      o.current = m.value == null ? "(pressed)" : m.value; o.setAt = ev.t;
+      S.options.set(m.name, o);
+    } else if (m.type === "id" && ev.dir === "engine>gui") {
+      S.ident[m.field] = m.value;
+    } else if (m.type === "go") {
+      S.stats.goCount++;
+    } else if (m.type === "info" && ev.dir === "engine>gui" && (m.depth != null || m.score)) {
+      S.stats.lastInfo = m;
+    } else if (m.type === "bestmove") {
+      S.stats.lastBest = m;
+    }
+  }
+  if (passes(ev)) {
+    S.view.push(idx);
+    S.dirty.list = true;
+  }
+  S.dirty.scope = true;
+  S.dirty.detail = true;
+}
+
+function receive(ev) {
+  if (S.paused) S.queue.push(ev); else ingest(ev);
+}
+
+function rebuildView() {
+  const v = [];
+  const ev = S.events;
+  for (let i = 0; i < ev.length; i++) if (passes(ev[i])) v.push(i);
+  S.view = v;
+  S.dirty.list = true;
+  updateShown();
+}
+
+function resetData() {
+  S.events = []; S.view = []; S.queue = [];
+  S.sel = -1; S.bytes = 0; S.ratePts = [];
+  S.options = new Map(); S.ident = {}; S.optDirty = true;
+  S.stats = { goCount: 0, lastInfo: null, lastBest: null, perType: {} };
+  S.follow = true;
+  $("scroller").scrollTop = 0;
+  S.dirty = { list: true, scope: true, detail: true };
+}
+
+// ======================================================================
+// connection handling
+// ======================================================================
+function detach() {
+  if (S.attached && S.attached.es) { try { S.attached.es.close(); } catch (e) {} }
+  S.attached = null;
+}
+
+function attach(kind, id, label) {
+  detach();
+  resetData();
+  // A saved transcript is looked at as a whole; a live session as a moving window.
+  $("win").value = kind === "file" ? "0" : "30000";
+  const a = { kind, id, label, es: null, meta: null, state: "connecting" };
+  S.attached = a;
+  const url = kind === "live"
+    ? "/api/stream?pid=" + encodeURIComponent(id)
+    : "/api/stream?file=" + encodeURIComponent(id);
+  const es = new EventSource(url);
+  a.es = es;
+  es.addEventListener("hello", e => {
+    try { a.meta = JSON.parse(e.data); } catch (_) { a.meta = {}; }
+    a.state = kind === "live" ? "live" : "loading";
+    setState();
+  });
+  es.onmessage = e => {
+    try { receive(JSON.parse(e.data)); } catch (_) { /* ignore a malformed packet */ }
+  };
+  es.addEventListener("end", () => {
+    a.state = "ended";
+    es.close();
+    setState();
+  });
+  es.onerror = () => {
+    if (a.state !== "ended") { a.state = "lost"; es.close(); setState(); }
+  };
+  setState();
+  syncSessionSelect();
+}
+
+function setState() {
+  const a = S.attached, p = $("state");
+  let text = "IDLE", cls = "pill";
+  if (a) {
+    if (S.paused) { text = "PAUSED"; cls = "pill paused"; }
+    else if (a.state === "live") { text = "LIVE"; cls = "pill live"; }
+    else if (a.state === "ended") { text = a.kind === "file" ? "FILE" : "ENDED"; cls = "pill ended"; }
+    else if (a.state === "lost") { text = "DISCONNECTED"; cls = "pill err"; }
+    else { text = "CONNECTING"; }
+  }
+  p.textContent = text; p.className = cls;
+  updateConsole();
+  $("bPause").classList.toggle("on", S.paused);
+  $("bPause").textContent = S.paused ? "Resume" : "Pause";
+  $("bFollow").classList.toggle("on", S.follow);
+  updateEmpty();
+}
+
+// ---- session list -----
+let lastSessions = { live: [], transcripts: [] };
+
+async function pollSessions() {
+  try {
+    const r = await fetch("/api/sessions", { cache: "no-store" });
+    lastSessions = await r.json();
+  } catch (_) { return; }
+  syncSessionSelect();
+  autoAttach();
+}
+
+function hhmm(ms) {
+  const d = new Date(ms);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function syncSessionSelect() {
+  const sel = $("session");
+  const cur = S.attached ? S.attached.kind + ":" + S.attached.id : "";
+  const opts = [];
+  const live = lastSessions.live || [];
+  const liveIds = new Set(live.map(s => String(s.pid)));
+  if (S.attached && S.attached.kind === "live" && !liveIds.has(String(S.attached.id))) {
+    opts.push(["live:" + S.attached.id, "○ " + (S.attached.label || "session " + S.attached.id) + "  (ended)", "Sessions"]);
+  }
+  live.forEach(s => opts.push(["live:" + s.pid, "● " + basename(s.engine) + "   pid " + s.pid + "   started " + hhmm(s.started_unix_ms), "Running now"]));
+  (lastSessions.transcripts || []).forEach(t =>
+    opts.push(["file:" + t.file, t.file + "   " + fmtBytes(t.size), "Saved transcripts"]));
+  if (!opts.length) opts.push(["", "no sessions yet", ""]);
+  if (!opts.some(o => o[0] === cur) && cur) opts.unshift([cur, S.attached.label || cur, "Sessions"]);
+  if (!cur) opts.unshift(["", "— choose a session —", ""]);
+  const sig = JSON.stringify(opts) + "|" + cur;
+  if (sel.dataset.sig === sig) return;
+  sel.dataset.sig = sig;
+  sel.textContent = "";
+  let group = null, groupName = null;
+  for (const [v, text, g] of opts) {
+    if (g && g !== groupName) { group = document.createElement("optgroup"); group.label = g; sel.appendChild(group); groupName = g; }
+    const o = document.createElement("option");
+    o.value = v; o.textContent = text;
+    (g ? group : sel).appendChild(o);
+  }
+  sel.value = cur;
+}
+
+function autoAttach() {
+  // Follow the newest running shim whenever nothing is on screen or the
+  // session on screen has finished (the chess GUI starts a fresh engine
+  // process for each game). A transcript the user picked is never replaced.
+  const live = lastSessions.live || [];
+  const a = S.attached;
+  const newest = live[0];
+  if (!newest) return;
+  const idle = !a || (a.kind === "live" && (a.state === "ended" || a.state === "lost"));
+  const known = S.seenLive.has(newest.pid);
+  S.seenLive.add(newest.pid);
+  if (idle && !(S.userPicked && a && a.kind === "file") && !(a && String(a.id) === String(newest.pid))) {
+    if (a) toast("New session: " + basename(newest.engine));
+    attach("live", newest.pid, basename(newest.engine));
+  } else if (!a && known) {
+    attach("live", newest.pid, basename(newest.engine));
+  }
+}
+
+$("session").addEventListener("change", e => {
+  const v = e.target.value;
+  if (!v) return;
+  const [kind, ...rest] = v.split(":");
+  const id = rest.join(":");
+  S.userPicked = kind === "file";
+  const label = e.target.selectedOptions[0] ? e.target.selectedOptions[0].textContent : id;
+  attach(kind, id, kind === "live" ? basename((lastSessions.live.find(s => String(s.pid) === id) || {}).engine || "") : label);
+});
+
+// ======================================================================
+// filters UI
+// ======================================================================
+function buildChips() {
+  const mk = (list, store, host) => {
+    for (const item of list) {
+      const c = document.createElement("span");
+      c.className = "chip on";
+      c.dataset.key = item.key;
+      c.style.setProperty("--c", item.color);
+      c.innerHTML = "<i></i>" + esc(item.label);
+      c.addEventListener("click", () => {
+        store[item.key] = !store[item.key];
+        c.classList.toggle("on", store[item.key]);
+        rebuildView();
+      });
+      host.appendChild(c);
+      host.appendChild(document.createTextNode(" "));
+    }
+  };
+  mk(DIRS, F.dirs, $("dirChips"));
+  mk(GROUPS, F.groups, $("grpChips"));
+}
+let qTimer = 0;
+$("q").addEventListener("input", e => {
+  clearTimeout(qTimer);
+  qTimer = setTimeout(() => { F.q = e.target.value.trim().toLowerCase(); rebuildView(); }, 120);
+});
+function updateShown() {
+  $("shown").textContent = "showing " + fmtN(S.view.length) + " of " + fmtN(S.events.length);
+}
+
+// ======================================================================
+// virtual packet list
+// ======================================================================
+const scroller = $("scroller"), rowsEl = $("rows");
+
+function viewPos(eventIdx) {   // first position in view with value >= eventIdx
+  let lo = 0, hi = S.view.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (S.view[mid] < eventIdx) lo = mid + 1; else hi = mid; }
+  return lo;
+}
+
+function rowHTML(ev, top) {
+  const d = DIRBY[ev.dir];
+  const g = GRPBY[ev.group];
+  const color = ev.dir === "engine>stderr" ? ERRCOL : ev.dir === "shim" ? SHIMCOL : g.color;
+  const text = S.rowMode === "raw" ? ev.line : ev.desc;
+  return '<div class="row ' + d.cls + (ev.i === S.sel ? " sel" : "") + '" data-i="' + ev.i + '" style="top:' + top + 'px">' +
+    '<span class="n">' + ev.i + '</span>' +
+    '<span class="t">' + fmtT(ev.t) + '</span>' +
+    '<span class="d">' + d.short + '</span>' +
+    '<span class="tag" style="--c:' + color + '">' + esc(ev.type) + '</span>' +
+    '<span class="x">' + esc(text) + '</span></div>';
+}
+
+function renderList() {
+  const total = S.view.length;
+  rowsEl.style.height = total * ROW + "px";
+  if (S.follow && total) scroller.scrollTop = scroller.scrollHeight;
+  const top = scroller.scrollTop, h = scroller.clientHeight;
+  const first = Math.max(0, Math.floor(top / ROW) - 4);
+  const last = Math.min(total, Math.ceil((top + h) / ROW) + 4);
+  let html = "";
+  for (let p = first; p < last; p++) html += rowHTML(S.events[S.view[p]], p * ROW);
+  rowsEl.innerHTML = html;
+  $("jump").style.display = !S.follow && total ? "block" : "none";
+  updateShown();
+  updateEmpty();
+}
+
+scroller.addEventListener("scroll", () => {
+  const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4;
+  if (atBottom !== S.follow) { S.follow = atBottom; setState(); }
+  S.dirty.list = true;
+});
+rowsEl.addEventListener("mousedown", e => {
+  const row = e.target.closest(".row");
+  if (row) select(Number(row.dataset.i), false);
+});
+
+function select(i, scrollTo) {
+  if (i < 0 || i >= S.events.length) return;
+  S.sel = i;
+  S.dirty.list = S.dirty.detail = S.dirty.scope = true;
+  if (scrollTo) ensureVisible(i);
+}
+
+function ensureVisible(i) {
+  const pos = Math.min(viewPos(i), Math.max(0, S.view.length - 1));
+  const y = pos * ROW, h = scroller.clientHeight;
+  if (y < scroller.scrollTop) scroller.scrollTop = y;
+  else if (y + ROW > scroller.scrollTop + h) scroller.scrollTop = y + ROW - h;
+}
+
+function move(delta) {
+  if (!S.view.length) return;
+  let pos;
+  if (S.sel < 0) pos = delta > 0 ? -1 : S.view.length;
+  else pos = viewPos(S.sel);
+  if (S.sel >= 0 && S.view[pos] !== S.sel && delta < 0) pos = pos;       // hidden selection: step from nearest
+  pos = Math.max(0, Math.min(S.view.length - 1, pos + delta));
+  select(S.view[pos], true);
+}
+
+$("jump").addEventListener("click", () => { S.follow = true; S.dirty.list = true; setState(); });
+$("bFollow").addEventListener("click", () => { S.follow = !S.follow; if (S.follow) S.dirty.list = true; setState(); });
+$("bPause").addEventListener("click", togglePause);
+function togglePause() {
+  S.paused = !S.paused;
+  if (!S.paused) { const q = S.queue; S.queue = []; q.forEach(ingest); }
+  setState();
+}
+function setRowMode(m) {
+  S.rowMode = m;
+  $("vRaw").classList.toggle("on", m === "raw");
+  $("vDec").classList.toggle("on", m === "decoded");
+  S.dirty.list = true;
+}
+$("vRaw").addEventListener("click", () => setRowMode("raw"));
+$("vDec").addEventListener("click", () => setRowMode("decoded"));
+
+$("emptyBody").addEventListener("click", e => { if (e.target.id === "emptyLoad") openLoad(); });
+
+function updateEmpty() {
+  const e = $("empty"), body = $("emptyBody");
+  const none = S.events.length === 0;
+  const a = S.attached;
+  if (!none) { e.style.display = "none"; return; }
+  e.style.display = "flex";
+  if (!a) {
+    body.innerHTML = "<h2>Waiting for a session</h2>" +
+      "Point your chess program at <code>uci-shim.exe</code> instead of the engine, then start analysing. " +
+      "The traffic appears here the moment the shim starts. " +
+      "Or press <b>Load engine…</b> to start one from here. " +
+      "You can also pick a saved transcript from the list above." +
+      '<div><button id="emptyLoad">Load engine…</button></div>';
+  } else if (a.state === "connecting") {
+    body.innerHTML = "<h2>Connecting…</h2>";
+  } else if (a.state === "lost") {
+    body.innerHTML = "<h2>Lost the connection</h2>The viewer program stopped answering. Start <code>uci-viewer</code> again.";
+  } else {
+    body.innerHTML = "<h2>Connected</h2>Nothing has been sent yet. Start the engine from your chess program, or press Analyse.";
+  }
+}
+
+// ======================================================================
+// detail pane
+// ======================================================================
+const pane = $("pane");
+$("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-tab]");
+  if (b) setTab(b.dataset.tab);
+});
+function setTab(t) {
+  S.tab = t;
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  S.dirty.detail = true;
+}
+
+function currentPacket() {
+  if (S.sel >= 0) return S.events[S.sel];
+  if (S.follow && S.view.length) return S.events[S.view[S.view.length - 1]];
+  return null;
+}
+
+function kv(rows) {
+  const body = rows.filter(r => r && r[1] !== "" && r[1] != null)
+    .map(r => "<tr><td>" + esc(r[0]) + "</td><td>" + r[1] + "</td></tr>").join("");
+  return '<table class="kv">' + body + "</table>";
+}
+const num = v => v == null ? null : esc(fmtN(v));
+const moves = (list, hl) => (list || []).map((m, i) => '<span class="mv' + (hl && i === 0 ? " first" : "") + '">' + esc(m) + "</span>").join("");
+
+function decodedFields(m) {
+  switch (m.type) {
+    case "info": {
+      const sc = m.score;
+      const scoreHtml = sc ? '<span class="' + (sc.value > 0 ? "pos" : sc.value < 0 ? "neg" : "") + '">' + esc(fmtScore(sc)) + "</span>" +
+        (sc.kind === "cp" ? ' <span class="dflt">(' + sc.value + " cp)</span>" : ' <span class="dflt">mate in ' + Math.abs(sc.value) + "</span>") +
+        (sc.bound !== "exact" ? ' <span class="chg">' + sc.bound + " bound</span>" : "") : null;
+      return kv([
+        ["depth", num(m.depth)], ["seldepth", num(m.seldepth)], ["multipv", num(m.multipv)],
+        ["score", scoreHtml], ["nodes", num(m.nodes)], ["nps", num(m.nps)],
+        ["time", m.time_ms != null ? num(m.time_ms) + " ms" : null],
+        ["hashfull", m.hashfull != null ? (m.hashfull / 10).toFixed(1) + " %" : null],
+        ["tbhits", num(m.tbhits)], ["cpuload", m.cpuload != null ? (m.cpuload / 10).toFixed(1) + " %" : null],
+        ["currmove", m.currmove ? '<span class="mv">' + esc(m.currmove) + "</span>" + (m.currmovenumber ? " #" + m.currmovenumber : "") : null],
+        ["pv", m.pv && m.pv.length ? moves(m.pv, true) : null],
+        ["string", m.string != null ? esc(m.string) : null],
+      ]);
+    }
+    case "go": {
+      const rows = [];
+      if (m.infinite) rows.push(["mode", "infinite (until stop)"]);
+      if (m.ponder) rows.push(["ponder", "yes"]);
+      [["wtime", "white clock"], ["btime", "black clock"], ["winc", "white increment"], ["binc", "black increment"],
+       ["movestogo", "moves to go"], ["depth", "depth limit"], ["nodes", "node limit"], ["mate", "mate in"], ["movetime", "move time"]]
+        .forEach(([k, label]) => { if (m[k] != null) rows.push([label, esc(fmtN(m[k])) + (/time|inc/.test(k) ? " ms" : "")]); });
+      if (m.searchmoves && m.searchmoves.length) rows.push(["searchmoves", moves(m.searchmoves)]);
+      return rows.length ? kv(rows) : '<div class="none">no limits given</div>';
+    }
+    case "position":
+      return kv([["start from", m.fen ? '<span class="mv">' + esc(m.fen) + "</span>" : "standard start position"],
+        ["moves", m.moves && m.moves.length ? moves(m.moves) + ' <span class="dflt">(' + m.moves.length + ")</span>" : "none"]]);
+    case "setoption":
+      return kv([["name", esc(m.name)], ["value", m.value != null ? esc(m.value) : "(button pressed)"]]);
+    case "option":
+      return kv([["name", esc(m.name)], ["kind", esc(m.kind)],
+        ["default", m.default != null ? esc(m.default) : null], ["min", num(m.min)], ["max", num(m.max)],
+        ["choices", m.vars && m.vars.length ? m.vars.map(v => '<span class="mv">' + esc(v) + "</span>").join("") : null]]);
+    case "bestmove":
+      return kv([["best move", '<span class="mv first">' + esc(m.best) + "</span>"],
+        ["ponder", m.ponder ? '<span class="mv">' + esc(m.ponder) + "</span>" : "none"]]);
+    case "id":
+      return kv([[m.field, esc(m.value)]]);
+    case "debug":
+      return kv([["debug", m.on ? "on" : "off"]]);
+    default:
+      return "";
+  }
+}
+
+function renderDecoded(ev) {
+  const d = DIRBY[ev.dir];
+  let html = '<div class="head"><span class="big" style="color:' + d.color + '">' + esc(ev.type) + "</span>" +
+    '<span class="meta">#' + ev.i + " · " + fmtT(ev.t) + " s · " + esc(d.label) + "</span></div>";
+  html += '<div class="sentence">' + esc(ev.desc) + "</div>";
+  if (ev.msg) {
+    const f = decodedFields(ev.msg);
+    if (f) html += f;
+    else if (ev.msg.type === "unknown") html += '<div class="none">This line is not a standard UCI message. Shown as received in the Raw tab.</div>';
+  }
+  // timing relative to the neighbours
+  const prev = S.events[ev.i - 1];
+  const rows = [["since previous packet", prev ? esc(String(ev.t - prev.t)) + " ms" : null]];
+  if (isMsgDir(ev.dir)) {
+    const wantHost = ev.dir === "engine>gui";   // what to look back for: the other side
+    for (let k = ev.i - 1; k >= 0; k--) {
+      const o = S.events[k];
+      if (isMsgDir(o.dir) && fromHost(o.dir) === wantHost) {
+        rows.push(["since last " + (wantHost ? "command" : "engine") + " packet", esc(String(ev.t - o.t)) + " ms"]);
+        break;
+      }
+    }
+  }
+  html += '<div class="sub">timing</div>' + kv(rows);
+  return html;
+}
+
+function renderRaw(ev) {
+  const bytes = new TextEncoder().encode(ev.line).length + 1;
+  return '<div class="head"><span class="big">raw line</span><span class="meta">' + bytes + " bytes incl. newline</span></div>" +
+    '<pre class="raw">' + esc(ev.line) + "</pre>" +
+    '<button id="bCopy">Copy line</button>';
+}
+
+function renderHex(ev) {
+  const data = new TextEncoder().encode(ev.line + "\n");
+  let out = "";
+  for (let off = 0; off < data.length; off += 16) {
+    const chunk = data.slice(off, off + 16);
+    let hex = "", asc = "";
+    for (let k = 0; k < 16; k++) {
+      if (k < chunk.length) {
+        const b = chunk[k];
+        hex += b.toString(16).padStart(2, "0") + " ";
+        asc += b >= 32 && b < 127 ? esc(String.fromCharCode(b)) : "·";
+      } else hex += "   ";
+      if (k === 7) hex += " ";
+    }
+    out += '<span class="off">' + off.toString(16).padStart(4, "0") + "</span>  " + hex + ' <span class="asc">' + asc + "</span>\n";
+  }
+  return '<div class="head"><span class="big">hex</span><span class="meta">' + data.length + " bytes</span></div>" +
+    '<div class="hex">' + out + "</div>";
+}
+
+function renderOptions() {
+  if (!S.options.size) return '<div class="none">No options seen yet. They appear after the GUI sends <b>uci</b> and the engine lists what it supports.</div>';
+  let changed = 0;
+  const rows = [...S.options.entries()].map(([name, o]) => {
+    const d = o.decl || {};
+    const cur = o.current;
+    const isChg = cur !== undefined && String(cur) !== String(d.default == null ? "" : d.default);
+    if (isChg) changed++;
+    let range = "";
+    if (d.kind === "spin") range = (d.min != null ? d.min : "") + " … " + (d.max != null ? d.max : "");
+    else if (d.kind === "combo") range = (d.vars || []).join(" | ");
+    return "<tr><td>" + esc(name) + (o.decl ? "" : ' <span class="dflt">(not declared)</span>') + "</td>" +
+      "<td>" + esc(d.kind || "") + "</td>" +
+      "<td>" + (d.default != null ? esc(d.default) : "") + "</td>" +
+      '<td class="' + (isChg ? "chg" : "dflt") + '">' + (cur === undefined ? "—" : esc(cur)) + "</td>" +
+      "<td class=\"dflt\">" + esc(range) + "</td></tr>";
+  }).join("");
+  return '<div class="head"><span class="big">engine options</span><span class="meta">' + S.options.size + " declared · " + changed + " set by the GUI</span></div>" +
+    '<table class="kv wide"><tr style="color:var(--faint)"><td>name</td><td>type</td><td>default</td><td>value</td><td>range</td></tr>' + rows + "</table>";
+}
+
+function renderSession() {
+  const a = S.attached;
+  const m = (a && a.meta) || {};
+  const st = S.stats;
+  const last = S.events.length ? S.events[S.events.length - 1].t : 0;
+  const counts = Object.entries(st.perType).sort((x, y) => y[1] - x[1]).map(([k, v]) => esc(k) + " " + fmtN(v)).join(" · ");
+  let li = "";
+  if (st.lastInfo) {
+    const i = st.lastInfo;
+    li = [i.depth != null ? "depth " + i.depth : "", i.score ? "score " + fmtScore(i.score) : "", i.nps != null ? fmtN(i.nps) + " nps" : ""].filter(Boolean).join(" · ");
+  }
+  const file = a ? (a.kind === "file" ? a.id : basename(m.transcript)) : "";
+  return '<div class="head"><span class="big">session</span></div>' + kv([
+    ["engine", esc(S.ident.name || basename(m.engine) || "")],
+    ["author", esc(S.ident.author || "")],
+    ["program", esc(m.engine || "")],
+    ["shim pid", a && a.kind === "live" ? esc(String(a.id)) : null],
+    ["started", m.started_unix_ms ? esc(new Date(m.started_unix_ms).toLocaleString()) : null],
+    ["duration", esc(fmtT(last)) + " s"],
+    ["packets", esc(fmtN(S.events.length))],
+    ["bytes", esc(fmtBytes(S.bytes))],
+    ["searches started", esc(fmtN(st.goCount))],
+    ["last report", esc(li)],
+    ["last bestmove", st.lastBest ? '<span class="mv first">' + esc(st.lastBest.best) + "</span>" : null],
+    ["by type", esc(counts)],
+    ["transcript", file ? '<a href="/api/transcript?file=' + encodeURIComponent(file) + '" download>' + esc(file) + "</a>" : "not recorded"],
+  ]);
+}
+
+function renderDetail() {
+  let html;
+  const ev = currentPacket();
+  if (S.tab === "regex") {
+    renderRegex(ev);
+    $("fSel").textContent = ev ? "#" + ev.i + "  " + fmtT(ev.t) + " s  " + DIRBY[ev.dir].label + "  " + ev.type : "no packet selected";
+    return;
+  }
+  if (S.tab === "options") html = renderOptions();
+  else if (S.tab === "session") html = renderSession();
+  else if (!ev) html = '<div class="none">Select a packet in the list to inspect it.</div>';
+  else if (S.tab === "raw") html = renderRaw(ev);
+  else if (S.tab === "hex") html = renderHex(ev);
+  else html = renderDecoded(ev);
+  const top = pane.scrollTop;
+  pane.innerHTML = html;
+  pane.scrollTop = top;
+  const b = $("bCopy");
+  if (b && ev) b.addEventListener("click", () => copyText(ev.line));
+  $("fSel").textContent = ev ? "#" + ev.i + "  " + fmtT(ev.t) + " s  " + DIRBY[ev.dir].label + "  " + ev.type : "no packet selected";
+}
+
+function copyText(t) {
+  const done = () => toast("Copied");
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, () => fallbackCopy(t, done));
+  else fallbackCopy(t, done);
+}
+function fallbackCopy(t, done) {
+  const ta = document.createElement("textarea");
+  ta.value = t; document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } catch (_) {}
+  ta.remove();
+}
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.display = "none"; }, 2200);
+}
+
+// ======================================================================
+// scope (the timeline)
+// ======================================================================
+const canvas = $("scope"), ctx = canvas.getContext("2d");
+let cw = 0, ch = 0, dpr = 1;
+const PAD_L = 92, PAD_R = 14;
+const LANE = { a: { y: 24, h: 34 }, b: { y: 62, h: 34 }, eval: { y: 112, h: 36 } };
+const AXIS_Y = 158;
+let scopeRange = [0, 1];   // time range currently drawn (ms)
+
+function sizeCanvas() {
+  const r = canvas.getBoundingClientRect();
+  dpr = window.devicePixelRatio || 1;
+  cw = Math.max(1, Math.floor(r.width)); ch = Math.max(1, Math.floor(r.height));
+  canvas.width = Math.floor(cw * dpr); canvas.height = Math.floor(ch * dpr);
+  S.dirty.scope = true;
+}
+new ResizeObserver(() => { sizeCanvas(); S.dirty.list = true; }).observe($("scopeWrap"));
+new ResizeObserver(() => { S.dirty.list = true; }).observe(scroller);
+
+function niceStep(span, target) {
+  const raw = span / target;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 5, 10]) if (m * p >= raw) return m * p;
+  return 10 * p;
+}
+function lowerBoundT(t) {   // first event index with .t >= t
+  let lo = 0, hi = S.events.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (S.events[mid].t < t) lo = mid + 1; else hi = mid; }
+  return lo;
+}
+const x2t = x => scopeRange[0] + (x - PAD_L) / (cw - PAD_L - PAD_R) * (scopeRange[1] - scopeRange[0]);
+const t2x = t => PAD_L + (t - scopeRange[0]) / (scopeRange[1] - scopeRange[0]) * (cw - PAD_L - PAD_R);
+
+function computeRange() {
+  const n = S.events.length;
+  const tmax = n ? S.events[n - 1].t : 0;
+  const win = Number($("win").value);
+  let lo = 0, hi = Math.max(tmax, 1000);
+  if (win > 0 && tmax > win) { lo = tmax - win; hi = tmax; }
+  else if (win > 0) { hi = Math.max(win, tmax); }
+  else hi = Math.max(tmax * 1.02, 1000);
+  scopeRange = [lo, hi];
+}
+
+const PRIORITY = { bestmove: 6, go: 5, position: 4, handshake: 3, options: 2, other: 1, info: 0 };
+
+function drawScope() {
+  const c = ctx;
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.clearRect(0, 0, cw, ch);
+  computeRange();
+  const plotW = cw - PAD_L - PAD_R;
+  const [t0, t1] = scopeRange;
+
+  // grid + time axis
+  c.font = "10px " + getComputedStyle(document.body).getPropertyValue("--mono");
+  c.textBaseline = "middle";
+  const step = niceStep(t1 - t0, Math.max(3, plotW / 110));
+  c.strokeStyle = SC.grid; c.lineWidth = 1; c.fillStyle = SC.text; c.textAlign = "center";
+  for (let t = Math.ceil(t0 / step) * step; t <= t1; t += step) {
+    const x = Math.round(t2x(t)) + .5;
+    c.beginPath(); c.moveTo(x, 8); c.lineTo(x, AXIS_Y); c.stroke();
+    c.fillText(step >= 1000 ? (t / 1000).toFixed(step >= 5000 ? 0 : 1) + " s" : (t / 1000).toFixed(2) + " s", x, AXIS_Y + 10);
+  }
+
+  // lane backgrounds + labels
+  const lanes = [
+    [LANE.a, "GUI / YOU → ENGINE", PAL_NOW().dirs["gui>engine"]],
+    [LANE.b, "ENGINE → GUI", PAL_NOW().dirs["engine>gui"]],
+    [LANE.eval, "EVAL", SC.text],
+  ];
+  c.textAlign = "left";
+  for (const [l, label, col] of lanes) {
+    c.fillStyle = SC.lane; c.fillRect(PAD_L, l.y, plotW, l.h);
+    c.fillStyle = col; c.globalAlpha = .85; c.fillText(label, 10, l.y + l.h / 2); c.globalAlpha = 1;
+  }
+  const n = S.events.length;
+  if (!n) return;
+  const start = Math.max(0, lowerBoundT(t0) - 1);
+  // per-pixel-column aggregation keeps a flood of packets drawable
+  const cols = Math.max(1, Math.floor(plotW));
+  const cnt = [new Uint32Array(cols), new Uint32Array(cols)];
+  const top = [new Int8Array(cols).fill(-1), new Int8Array(cols).fill(-1)];
+  const topCol = [new Array(cols), new Array(cols)];
+  const evalY = new Float32Array(cols).fill(NaN);
+  const shimCols = [], errCols = [];
+  for (let i = start; i < n; i++) {
+    const ev = S.events[i];
+    if (ev.t > t1) break;
+    if (!passesScope(ev)) continue;
+    const col = Math.floor(((ev.t - t0) / (t1 - t0)) * plotW);
+    if (col < 0 || col >= cols) continue;
+    if (ev.dir === "shim") { shimCols.push(col); continue; }
+    const lane = fromHost(ev.dir) ? 0 : 1;
+    cnt[lane][col]++;
+    let pr, color;
+    if (ev.dir === "viewer>engine") { pr = 8; color = V2ECOL; }
+    else if (ev.dir === "engine>stderr") { pr = 7; color = ERRCOL; }
+    else { pr = PRIORITY[ev.group]; color = GRPBY[ev.group].color; }
+    if (pr > top[lane][col]) { top[lane][col] = pr; topCol[lane][col] = color; }
+    if (ev.dir === "engine>stderr") errCols.push(col);
+    const m = ev.msg;
+    if (m && m.type === "info" && m.score && (m.multipv == null || m.multipv === 1) && ev.dir === "engine>gui") {
+      const cp = m.score.kind === "mate" ? (m.score.value > 0 ? 1000 : -1000) : m.score.value;
+      evalY[col] = Math.max(-1000, Math.min(1000, cp));
+    }
+  }
+  // ticks
+  [LANE.a, LANE.b].forEach((l, lane) => {
+    for (let col = 0; col < cols; col++) {
+      if (!cnt[lane][col]) continue;
+      const hgt = Math.min(l.h - 4, 8 + Math.log2(cnt[lane][col]) * 6);
+      c.fillStyle = topCol[lane][col];
+      const x = PAD_L + col;
+      if (lane === 0) c.fillRect(x, l.y + l.h - hgt - 1, 2, hgt);
+      else c.fillRect(x, l.y + 1, 2, hgt);
+    }
+  });
+  // shim markers
+  c.fillStyle = SHIMCOL;
+  for (const col of shimCols) c.fillRect(PAD_L + col, LANE.a.y, 1, LANE.b.y + LANE.b.h - LANE.a.y);
+  // eval grid: the vertical scale adapts to what is on screen
+  let maxAbs = 0;
+  for (let k = 0; k < cols; k++) if (!Number.isNaN(evalY[k])) maxAbs = Math.max(maxAbs, Math.abs(evalY[k]));
+  const evRange = [100, 200, 500, 1000].find(r => r >= maxAbs * 1.1) || 1000;
+  c.strokeStyle = SC.grid2; c.lineWidth = 1;
+  for (const v of [-0.5, 0, 0.5]) {
+    const y = Math.round(LANE.eval.y + LANE.eval.h / 2 - v * (LANE.eval.h / 2)) + .5;
+    c.beginPath(); c.moveTo(PAD_L, y); c.lineTo(PAD_L + plotW, y); c.stroke();
+  }
+  c.fillStyle = SC.text2; c.textAlign = "right"; c.textBaseline = "middle";
+  c.fillText("+" + evRange / 100, PAD_L - 6, LANE.eval.y + 4);
+  c.fillText("\u2212" + evRange / 100, PAD_L - 6, LANE.eval.y + LANE.eval.h - 4);
+  c.fillText("0", PAD_L - 6, LANE.eval.y + LANE.eval.h / 2);
+  // eval trace
+  c.strokeStyle = SC.eval; c.lineWidth = 1.5; c.beginPath();
+  let pen = false, lastY = NaN;
+  const mid = LANE.eval.y + LANE.eval.h / 2, half = LANE.eval.h / 2 - 2;
+  for (let col = 0; col < cols; col++) {
+    if (Number.isNaN(evalY[col])) continue;
+    const y = mid - (evalY[col] / evRange) * half;
+    const x = PAD_L + col;
+    if (!pen) { c.moveTo(x, y); pen = true; } else { c.lineTo(x, lastY); c.lineTo(x, y); }
+    lastY = y;
+  }
+  if (pen) c.stroke();
+
+  // selection cursor
+  if (S.sel >= 0 && S.sel < n) {
+    const t = S.events[S.sel].t;
+    if (t >= t0 && t <= t1) {
+      const x = Math.round(t2x(t)) + .5;
+      c.strokeStyle = SC.cursor; c.lineWidth = 1; c.globalAlpha = .8;
+      c.beginPath(); c.moveTo(x, 8); c.lineTo(x, AXIS_Y); c.stroke(); c.globalAlpha = 1;
+      c.fillStyle = SC.cursor; c.beginPath(); c.moveTo(x - 4, 8); c.lineTo(x + 4, 8); c.lineTo(x, 14); c.fill();
+    }
+  }
+  // current time label
+  c.fillStyle = SC.text; c.textAlign = "right";
+  c.fillText(fmtN(n) + " packets", cw - PAD_R - 150, 12);
+}
+
+function passesScope(ev) { return !!F.dirs[ev.dir] && (!isMsgDir(ev.dir) || F.groups[ev.group]); }
+
+function nearestEvent(x, y) {
+  if (!S.events.length) return -1;
+  const t = x2t(x);
+  const tol = (scopeRange[1] - scopeRange[0]) / Math.max(1, cw - PAD_L - PAD_R) * 5;
+  let best = -1, bestD = Infinity;
+  let i = Math.max(0, lowerBoundT(t - tol) - 1);
+  const wantLane = y >= LANE.a.y && y < LANE.a.y + LANE.a.h + 2 ? "host"
+    : y >= LANE.b.y - 2 && y < LANE.b.y + LANE.b.h + 2 ? "engine" : null;
+  for (; i < S.events.length; i++) {
+    const ev = S.events[i];
+    if (ev.t > t + tol) break;
+    if (!passesScope(ev)) continue;
+    if (wantLane && isMsgDir(ev.dir) && fromHost(ev.dir) !== (wantLane === "host")) continue;
+    const d = Math.abs(ev.t - t) - (PRIORITY[ev.group] || 0) * 1e-6;
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+canvas.addEventListener("mousemove", e => {
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  const tip = $("tip");
+  const i = x >= PAD_L && x <= cw - PAD_R ? nearestEvent(x, y) : -1;
+  if (i < 0) { tip.style.display = "none"; return; }
+  const ev = S.events[i];
+  tip.textContent = "#" + ev.i + "  " + fmtT(ev.t) + " s  " + ev.desc;
+  tip.style.display = "block";
+  const w = tip.offsetWidth;
+  tip.style.left = Math.min(Math.max(4, x + 12), cw - w - 4) + "px";
+  tip.style.top = (y > 100 ? y - 34 : y + 18) + "px";
+});
+canvas.addEventListener("mouseleave", () => { $("tip").style.display = "none"; });
+canvas.addEventListener("click", e => {
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  if (x < PAD_L || x > cw - PAD_R) return;
+  const i = nearestEvent(x, y);
+  if (i >= 0) {
+    S.follow = false; setState();
+    select(i, true);
+  }
+});
+$("win").addEventListener("change", () => { S.dirty.scope = true; });
+
+// ======================================================================
+// frame loop and stats
+// ======================================================================
+let lastScope = 0;
+function frame(now) {
+  if (S.dirty.list) { S.dirty.list = false; renderList(); }
+  if (S.dirty.detail) { S.dirty.detail = false; renderDetail(); }
+  if (S.dirty.scope && now - lastScope > 66) { S.dirty.scope = false; lastScope = now; drawScope(); }
+  requestAnimationFrame(frame);
+}
+
+setInterval(() => {
+  const now = performance.now();
+  while (S.ratePts.length && now - S.ratePts[0] > 1000) S.ratePts.shift();
+  $("sPackets").textContent = fmtN(S.events.length) + (S.queue.length ? " (+" + fmtN(S.queue.length) + ")" : "");
+  $("sRate").textContent = S.ratePts.length;
+  $("sBytes").textContent = fmtBytes(S.bytes);
+  // keep the window-relative scope and session tab moving while live
+  if (S.optDirty) refreshCmdList();
+  if (S.attached && S.attached.state === "live") S.dirty.scope = true;
+  if (S.tab === "session" && S.attached && S.attached.state === "live") S.dirty.detail = true;
+}, 500);
+
+// ======================================================================
+// keyboard
+// ======================================================================
+document.addEventListener("keydown", e => {
+  const inField = /^(INPUT|SELECT|TEXTAREA)$/.test((e.target.tagName || ""));
+  if (LOAD_OPEN) {
+    if (e.key === "Escape") { e.preventDefault(); closeLoad(); }
+    return;
+  }
+  if (e.key === "Escape") {
+    if (document.activeElement === $("q")) { $("q").value = ""; F.q = ""; rebuildView(); $("q").blur(); }
+    else if (document.activeElement === cmdEl) { cmdEl.blur(); }
+    else if (document.activeElement && pane.contains(document.activeElement) && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) { document.activeElement.blur(); }
+    else if (S.sel >= 0) { S.sel = -1; S.dirty.list = S.dirty.detail = S.dirty.scope = true; }
+    return;
+  }
+  if (inField || e.ctrlKey || e.metaKey || e.altKey) return;
+  const page = Math.max(1, Math.floor(scroller.clientHeight / ROW) - 1);
+  switch (e.key) {
+    case "ArrowDown": case "j": e.preventDefault(); S.follow = false; move(1); break;
+    case "ArrowUp": case "k": e.preventDefault(); S.follow = false; move(-1); break;
+    case "PageDown": e.preventDefault(); S.follow = false; move(page); break;
+    case "PageUp": e.preventDefault(); S.follow = false; move(-page); break;
+    case "Home": e.preventDefault(); S.follow = false; if (S.view.length) select(S.view[0], true); break;
+    case "End": e.preventDefault(); if (S.view.length) { select(S.view[S.view.length - 1], false); S.follow = true; } break;
+    case "f": case "F": S.follow = !S.follow; if (S.follow) S.dirty.list = true; break;
+    case " ": e.preventDefault(); togglePause(); break;
+    case "/": e.preventDefault(); $("q").focus(); $("q").select(); break;
+    case "c": case "C": e.preventDefault(); cmdEl.focus(); break;
+    case "l": case "L": e.preventDefault(); openLoad(); break;
+    case "t": case "T": applyTheme(THEME === "dark" ? "light" : "dark", true); break;
+    case "1": setTab("decoded"); break;
+    case "2": setTab("raw"); break;
+    case "3": setTab("hex"); break;
+    case "4": setTab("options"); break;
+    case "5": setTab("session"); break;
+    case "6": setTab("regex"); break;
+    default: return;
+  }
+  setState();
+});
+
+// ======================================================================
+// regex tab: the pattern that matches the selected line (like regex101)
+// ======================================================================
+const RX_MOVE = "[a-h][1-8][a-h][1-8][qrbn]?";
+const RX_FREE_AFTER = new Set(["string", "pv", "refutation", "currline", "moves"]);
+const RX_MOVE_AFTER = new Set(["currmove", "bestmove", "ponder"]);
+const RX_NO_SHAPE = new Set(["uci", "isready", "ucinewgame", "stop", "ponderhit", "quit", "uciok", "readyok", "debug", "setoption", "id", "option", "position"]);
+
+function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function groupName(word, used) {
+  let n = String(word || "n").replace(/[^A-Za-z0-9_]/g, "_");
+  if (!n || /^[0-9]/.test(n)) n = "n" + n;
+  let k = n, c = 2;
+  while (used.has(k)) k = n + c++;
+  used.add(k);
+  return k;
+}
+
+// The pattern for this one line: its words as literals, numbers and moves as
+// named groups, and the free-text tail (pv, string) as one group.
+function shapePattern(line) {
+  const tok = line.trim().split(/\s+/);
+  if (!tok[0]) return "^" + escapeRe(line) + "$";
+  const used = new Set(), parts = [];
+  let word = "";
+  for (let i = 0; i < tok.length; i++) {
+    const t = tok[i];
+    if (i > 0 && RX_FREE_AFTER.has(tok[i - 1])) {
+      parts.push("(?<" + groupName(tok[i - 1], used) + ">.+)");
+      break;
+    }
+    if (/^-?\d+$/.test(t) && i > 0) parts.push("(?<" + groupName(word, used) + ">-?\\d+)");
+    else if (RX_MOVE_AFTER.has(word) && new RegExp("^" + RX_MOVE + "$").test(t)) parts.push("(?<" + groupName(word, used) + ">" + RX_MOVE + ")");
+    else parts.push(escapeRe(t));
+    if (!/^-?\d+$/.test(t)) word = t;
+  }
+  // Words are joined by a single space, unless this line itself uses wider gaps.
+  return "^" + parts.join(/\s{2,}|\t/.test(line.trim()) ? "\\s+" : " ") + "$";
+}
+
+const RX_GENERAL = {
+  uci: ["Any uci command", "^uci$"],
+  isready: ["Any isready command", "^isready$"],
+  ucinewgame: ["Any ucinewgame command", "^ucinewgame$"],
+  stop: ["Any stop command", "^stop$"],
+  ponderhit: ["Any ponderhit command", "^ponderhit$"],
+  quit: ["Any quit command", "^quit$"],
+  uciok: ["Any uciok reply", "^uciok$"],
+  readyok: ["Any readyok reply", "^readyok$"],
+  debug: ["Any debug command", "^debug (?<state>on|off)$"],
+  setoption: ["Any setoption command", "^setoption name (?<name>.+?)(?: value (?<value>.*))?$"],
+  position: ["Any position command", "^position (?:(?<startpos>startpos)|fen (?<fen>\\S+(?: \\S+){3,5}))(?: moves (?<moves>.+))?$"],
+  go: ["Any go command", "^go(?: (?<args>.+))?$"],
+  id: ["Any id line", "^id (?<field>name|author) (?<value>.+)$"],
+  bestmove: ["Any bestmove", "^bestmove (?<move>" + RX_MOVE + "|0000|\\(none\\))(?: ponder (?<ponder>" + RX_MOVE + "))?$"],
+  option: ["Any option declaration", "^option name (?<name>.+?) type (?<type>check|spin|combo|button|string)(?: default (?<default>.*?))?(?: min (?<min>-?\\d+))?(?: max (?<max>-?\\d+))?(?<vars>(?: var .+?)*)$"],
+  info: ["Any info line", "^info(?: (?<body>.*))?$"],
+};
+
+// One small pattern per field, for lines whose fields come in any order.
+const RX_FIELDS = {
+  info: [
+    ["depth", "\\bdepth (?<depth>\\d+)"], ["seldepth", "\\bseldepth (?<seldepth>\\d+)"],
+    ["multipv", "\\bmultipv (?<multipv>\\d+)"],
+    ["score cp", "\\bscore cp (?<cp>-?\\d+)(?: (?<bound>lowerbound|upperbound))?"],
+    ["score mate", "\\bscore mate (?<mate>-?\\d+)(?: (?<bound>lowerbound|upperbound))?"],
+    ["wdl", "\\bwdl (?<win>\\d+) (?<draw>\\d+) (?<loss>\\d+)"],
+    ["nodes", "\\bnodes (?<nodes>\\d+)"], ["nps", "\\bnps (?<nps>\\d+)"],
+    ["hashfull", "\\bhashfull (?<hashfull>\\d+)"], ["tbhits", "\\btbhits (?<tbhits>\\d+)"],
+    ["time", "\\btime (?<time>\\d+)"], ["cpuload", "\\bcpuload (?<cpuload>\\d+)"],
+    ["currmove", "\\bcurrmove (?<currmove>" + RX_MOVE + ")"],
+    ["currmovenumber", "\\bcurrmovenumber (?<number>\\d+)"],
+    ["pv", "\\bpv (?<pv>.+)$"], ["string", "\\bstring (?<text>.*)$"],
+  ],
+  go: [
+    ["wtime", "\\bwtime (?<wtime>-?\\d+)"], ["btime", "\\bbtime (?<btime>-?\\d+)"],
+    ["winc", "\\bwinc (?<winc>\\d+)"], ["binc", "\\bbinc (?<binc>\\d+)"],
+    ["movestogo", "\\bmovestogo (?<movestogo>\\d+)"], ["depth", "\\bdepth (?<depth>\\d+)"],
+    ["nodes", "\\bnodes (?<nodes>\\d+)"], ["mate", "\\bmate (?<mate>\\d+)"],
+    ["movetime", "\\bmovetime (?<movetime>\\d+)"], ["infinite", "\\b(?<infinite>infinite)\\b"],
+    ["ponder", "\\b(?<ponder>ponder)\\b"], ["searchmoves", "\\bsearchmoves (?<moves>.+?)(?= \\w+ \\d|$)"],
+  ],
+};
+
+function suggestRegexes(ev) {
+  const type = ev.msg ? ev.msg.type : "unknown";
+  const line = ev.line, out = [], seen = new Set();
+  const add = (label, pattern, flags) => {
+    if (seen.has(pattern)) return;
+    seen.add(pattern); out.push({ label, pattern, flags: flags || "" });
+  };
+  const shape = () => { if (!RX_NO_SHAPE.has(type)) add("This line's shape (numbers and moves captured)", shapePattern(line)); };
+  const general = () => { const g = RX_GENERAL[type]; if (g) add(g[0], g[1]); };
+  const fields = () => {
+    for (const [name, pat] of RX_FIELDS[type] || []) {
+      if (new RegExp(pat).test(line)) add("Just the field: " + name, pat);
+    }
+  };
+  if (type === "info") { shape(); fields(); general(); } else { general(); shape(); fields(); }
+  add("Exactly this line", "^" + escapeRe(line) + "$");
+  return out;
+}
+
+// ---- running a pattern ----
+function cleanFlags(f) {
+  let out = "";
+  for (const c of String(f || "")) if ("gimsu".includes(c) && !out.includes(c)) out += c;
+  return out;
+}
+function compileRx(pattern, flags) {
+  const base = cleanFlags(flags);
+  try { return { re: new RegExp(pattern, base + "d"), indices: true }; } catch (e1) {
+    try { return { re: new RegExp(pattern, base), indices: false }; } catch (e2) { return { error: e2.message.replace(/^Invalid regular expression: /, "") }; }
+  }
+}
+// The names of the capture groups in order (null for an unnamed one).
+function captureNames(src) {
+  const names = [];
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === "\\") { i++; continue; }
+    if (c === "[") { i++; while (i < src.length && src[i] !== "]") { if (src[i] === "\\") i++; i++; } continue; }
+    if (c !== "(") continue;
+    if (src[i + 1] !== "?") { names.push(null); continue; }
+    const m = /^\(\?<([A-Za-z_][A-Za-z0-9_]*)>/.exec(src.slice(i));
+    if (m) names.push(m[1]);
+  }
+  return names;
+}
+function runRx(pattern, flags, text) {
+  const c = compileRx(pattern, flags);
+  if (c.error) return { error: c.error, matches: [] };
+  const matches = [];
+  const names = captureNames(pattern);
+  const push = m => {
+    const groups = [];
+    for (let k = 1; k < m.length; k++) {
+      groups.push({ n: k, name: names[k - 1] || null, value: m[k], range: m.indices && m.indices[k] ? m.indices[k] : null });
+    }
+    matches.push({ start: m.index, end: m.index + m[0].length, text: m[0], groups });
+  };
+  if (c.re.flags.includes("g")) { for (const m of text.matchAll(c.re)) { push(m); if (matches.length >= 200) break; } }
+  else { const m = c.re.exec(text); if (m) push(m); }
+  return { matches, indices: c.indices };
+}
+
+// ---- highlighting ----
+function rxHighlight(text, res) {
+  const n = text.length;
+  const cls = new Array(n).fill("");
+  res.matches.forEach((m, mi) => {
+    for (let i = m.start; i < m.end; i++) cls[i] = "m" + (mi % 2);
+    for (const g of m.groups) if (g.range) for (let i = g.range[0]; i < g.range[1]; i++) cls[i] = "g" + (((g.n - 1) % 6) + 1);
+  });
+  let html = "", i = 0;
+  while (i < n) {
+    let j = i;
+    while (j < n && cls[j] === cls[i]) j++;
+    const piece = esc(text.slice(i, j));
+    html += cls[i] ? '<mark class="' + cls[i] + '">' + piece + "</mark>" : piece;
+    i = j;
+  }
+  return html || "&nbsp;";
+}
+
+// ---- plain-English explanation of a pattern ----
+function describeClass(body) {
+  const neg = body.startsWith("^");
+  const items = [];
+  const src = neg ? body.slice(1) : body;
+  const named = { d: "a digit", D: "a non-digit", w: "a letter, digit or _", W: "anything but a letter, digit or _", s: "whitespace", S: "anything but whitespace" };
+  for (let i = 0; i < src.length; i++) {
+    let c = src[i];
+    if (c === "\\" && i + 1 < src.length) { i++; c = src[i]; if (named[c]) { items.push(named[c]); continue; } }
+    if (src[i + 1] === "-" && i + 2 < src.length) { items.push(c + " to " + src[i + 2]); i += 2; } else items.push(c === " " ? "space" : c);
+  }
+  return "a single character " + (neg ? "that is NOT " : "that is ") + "one of: " + items.join(", ");
+}
+
+function explainRegex(src) {
+  const out = [];
+  let i = 0, depth = 0, groupNo = 0, items = [];
+  const push = (token, desc, extra) => out.push(Object.assign({ token, desc, depth }, extra || {}));
+  const flush = () => {
+    if (items.length) {
+      const t = items.map(x => x.src).join(""), txt = items.map(x => x.txt).join("");
+      push(t, items.length === 1 ? 'matches the character "' + txt + '" literally' : 'matches the characters "' + txt + '" literally');
+      items = [];
+    }
+  };
+  const lit = (s, txt) => items.push({ src: s, txt });
+  const classes = { d: "a digit (0-9)", D: "anything but a digit", w: "a letter, digit or underscore", W: "anything but a letter, digit or underscore", s: "a whitespace character", S: "anything but whitespace", b: "a word boundary", B: "a position that is not a word boundary", n: "a line feed", t: "a tab", r: "a carriage return" };
+  while (i < src.length) {
+    const c = src[i];
+    if (c === "\\") {
+      const d = src[i + 1];
+      if (d === undefined) { lit("\\", "\\"); i++; continue; }
+      if (classes[d]) { flush(); push("\\" + d, "matches " + classes[d]); i += 2; continue; }
+      if (/[1-9]/.test(d)) { flush(); push("\\" + d, "matches the same text as capture group " + d); i += 2; continue; }
+      if (d === "k") { const m = /^\\k<([^>]+)>/.exec(src.slice(i)); if (m) { flush(); push(m[0], 'matches the same text as the group named "' + m[1] + '"'); i += m[0].length; continue; } }
+      if (d === "u" || d === "x") { const m = /^\\(?:u\{[0-9a-fA-F]+\}|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2})/.exec(src.slice(i)); if (m) { flush(); push(m[0], "matches the character with that code"); i += m[0].length; continue; } }
+      lit("\\" + d, d); i += 2; continue;
+    }
+    if (c === "[") {
+      flush();
+      let j = i + 1;
+      if (src[j] === "^") j++;
+      while (j < src.length && src[j] !== "]") { if (src[j] === "\\") j++; j++; }
+      push(src.slice(i, j + 1), "matches " + describeClass(src.slice(i + 1, j)));
+      i = j + 1; continue;
+    }
+    if (c === "(") {
+      flush();
+      const rest = src.slice(i + 1);
+      let m;
+      if ((m = /^\?<([A-Za-z_][A-Za-z0-9_]*)>/.exec(rest))) { groupNo++; push("(" + m[0], 'named capture group "' + m[1] + '" (group ' + groupNo + ")", { grp: groupNo }); i += 1 + m[0].length; }
+      else if (rest.startsWith("?:")) { push("(?:", "non-capturing group"); i += 3; }
+      else if (rest.startsWith("?=")) { push("(?=", "positive lookahead: what follows must match, but is not consumed"); i += 3; }
+      else if (rest.startsWith("?!")) { push("(?!", "negative lookahead: what follows must NOT match"); i += 3; }
+      else if (rest.startsWith("?<=")) { push("(?<=", "positive lookbehind: what precedes must match"); i += 4; }
+      else if (rest.startsWith("?<!")) { push("(?<!", "negative lookbehind: what precedes must NOT match"); i += 4; }
+      else { groupNo++; push("(", "capture group " + groupNo, { grp: groupNo }); i += 1; }
+      depth++; continue;
+    }
+    if (c === ")") { flush(); depth = Math.max(0, depth - 1); push(")", "end of group"); i++; continue; }
+    if (c === "|") { flush(); push("|", "or: either what is before or what is after"); i++; continue; }
+    if (c === "^") { flush(); push("^", "start of the line"); i++; continue; }
+    if (c === "$") { flush(); push("$", "end of the line"); i++; continue; }
+    if (c === ".") { flush(); push(".", "matches any single character"); i++; continue; }
+    let q = null, qlen = 0;
+    if (c === "*") { q = "zero or more times"; qlen = 1; }
+    else if (c === "+") { q = "one or more times"; qlen = 1; }
+    else if (c === "?") { q = "zero or one time (optional)"; qlen = 1; }
+    else if (c === "{") {
+      const m = /^\{(\d+)(,(\d*))?\}/.exec(src.slice(i));
+      if (m) {
+        qlen = m[0].length;
+        q = m[2] === undefined ? "exactly " + m[1] + " times" : m[3] === "" ? m[1] + " or more times" : "between " + m[1] + " and " + m[3] + " times";
+      }
+    }
+    if (q) {
+      if (items.length) { const last = items.pop(); flush(); items = [last]; flush(); }
+      let tok = src.slice(i, i + qlen), lazy = false;
+      if (src[i + qlen] === "?") { lazy = true; tok += "?"; qlen++; }
+      push(tok, "matches the previous token " + q + ", " + (lazy ? "as few times as possible (lazy)" : "as many times as possible (greedy)"), { quant: true });
+      i += qlen; continue;
+    }
+    lit(c, c); i++;
+  }
+  flush();
+  return out;
+}
+const RX_FLAG_HELP = { g: "global: find every match, not just the first", i: "ignore case", m: "^ and $ match at each line", s: "the dot also matches a newline", u: "unicode mode" };
+
+// ---- the tab ----
+const RX = { ev: null, sugg: [], pattern: "", flags: "", pinned: false, run: 0, timer: 0 };
+
+function rxBuild() {
+  pane.innerHTML =
+    '<div id="rx">' +
+    '<div class="rxrow"><select id="rxSugg" title="Patterns that match the selected line"></select></div>' +
+    '<div class="rxline"><span class="rxd">/</span><textarea id="rxPat" rows="1" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea><span class="rxd">/</span>' +
+    '<input id="rxFlags" type="text" maxlength="5" spellcheck="false" autocomplete="off" title="Flags: g i m s u"></div>' +
+    '<div class="rxrow"><label class="rxpin" title="Keep this pattern while you click other lines, to see which ones it matches"><input id="rxPin" type="checkbox"> keep this pattern when I select another line</label></div>' +
+    '<div class="rxrow rxbtns">' +
+    '<button id="rxReset">Reset</button><button id="rxCopy" title="Copy the pattern">Copy</button>' +
+    '<button id="rxCopyPy" title="Copy with named groups written as (?P&lt;name&gt;), for Python and Rust">Copy (Python/Rust)</button></div>' +
+    '<div id="rxStatus"></div>' +
+    '<div class="sub">Test line</div><pre id="rxTest" class="raw"></pre>' +
+    '<div class="sub">Match information</div><div id="rxInfo"></div>' +
+    '<div class="sub">Explanation</div><div id="rxExplain"></div>' +
+    '<div class="sub">Across this session</div><div id="rxAcross"></div>' +
+    "</div>";
+  $("rxPat").value = RX.pattern; $("rxFlags").value = RX.flags; $("rxPin").checked = RX.pinned;
+  rxFit();
+  $("rxSugg").addEventListener("change", e => {
+    const s = RX.sugg[Number(e.target.value)];
+    if (s) { RX.pattern = s.pattern; RX.flags = s.flags; $("rxPat").value = s.pattern; $("rxFlags").value = s.flags; rxFit(); rxUpdate(); }
+  });
+  $("rxPat").addEventListener("input", e => {
+    // One line only: a newline typed or pasted is dropped.
+    if (/[\r\n]/.test(e.target.value)) e.target.value = e.target.value.replace(/[\r\n]+/g, "");
+    RX.pattern = e.target.value; rxFit(); rxPinNow(); rxUpdate();
+  });
+  $("rxPat").addEventListener("keydown", e => { if (e.key === "Enter") e.preventDefault(); });
+  $("rxFlags").addEventListener("input", e => { RX.flags = cleanFlags(e.target.value); rxPinNow(); rxUpdate(); });
+  $("rxPin").addEventListener("change", e => { RX.pinned = e.target.checked; });
+  $("rxReset").addEventListener("click", () => { RX.pinned = false; $("rxPin").checked = false; rxFromSuggestion(0); });
+  $("rxCopy").addEventListener("click", () => copyText(RX.pattern));
+  $("rxCopyPy").addEventListener("click", () => copyText(RX.pattern.replace(/\(\?<(?![=!])/g, "(?P<").replace(/\\k<([^>]+)>/g, "(?P=$1)")));
+  $("rxAcross").addEventListener("click", e => {
+    if (e.target.id === "rxFilterOn") rxApplyFilter(true);
+    else if (e.target.id === "rxFilterOff") rxApplyFilter(false);
+  });
+}
+
+// The pattern box grows with its text, so a long pattern is fully visible.
+function rxFit() {
+  const t = $("rxPat");
+  if (!t) return;
+  t.style.height = "auto";
+  t.style.height = t.scrollHeight + 2 + "px";
+}
+
+function rxPinNow() { RX.pinned = true; const p = $("rxPin"); if (p) p.checked = true; }
+
+function rxFromSuggestion(idx) {
+  const s = RX.sugg[idx];
+  if (!s) return;
+  RX.pattern = s.pattern; RX.flags = s.flags;
+  $("rxPat").value = s.pattern; $("rxFlags").value = s.flags; rxFit();
+  $("rxSugg").value = String(idx);
+  rxUpdate();
+}
+
+function renderRegex(ev) {
+  if (!ev) { pane.innerHTML = '<div class="none">Select a packet in the list to see a regular expression that matches it.</div>'; return; }
+  const fresh = !pane.querySelector("#rx");
+  if (fresh) rxBuild();
+  if (fresh || RX.ev !== ev) {
+    RX.ev = ev;
+    RX.sugg = suggestRegexes(ev);
+    const sel = $("rxSugg");
+    sel.textContent = "";
+    RX.sugg.forEach((s, k) => { const o = document.createElement("option"); o.value = String(k); o.textContent = s.label; sel.appendChild(o); });
+    if (!RX.pinned || !RX.pattern) rxFromSuggestion(0);
+    else {
+      const k = RX.sugg.findIndex(s => s.pattern === RX.pattern);
+      sel.value = k >= 0 ? String(k) : "";
+      rxUpdate();
+    }
+  }
+}
+
+function rxUpdate() {
+  const ev = RX.ev;
+  if (!ev || !$("rxStatus")) return;
+  const res = runRx(RX.pattern, RX.flags, ev.line);
+  const st = $("rxStatus");
+  if (res.error) { st.className = "bad"; st.textContent = "Invalid pattern: " + res.error; }
+  else if (!res.matches.length) { st.className = "none-m"; st.textContent = "No match on this line."; }
+  else {
+    const gs = res.matches[0].groups.length;
+    st.className = "ok";
+    st.textContent = res.matches.length + (res.matches.length === 1 ? " match" : " matches") + ", " + gs + (gs === 1 ? " group" : " groups") +
+      (res.matches[0].start === 0 && res.matches[0].end === ev.line.length ? " — the whole line" : "");
+  }
+  $("rxTest").innerHTML = rxHighlight(ev.line, res);
+  $("rxInfo").innerHTML = rxInfoHtml(res);
+  $("rxExplain").innerHTML = rxExplainHtml();
+  rxScheduleCount();
+}
+
+function rxInfoHtml(res) {
+  if (res.error || !res.matches.length) return '<div class="none">Nothing matched.</div>';
+  let html = "";
+  res.matches.forEach((m, mi) => {
+    html += '<table class="kv wide"><tr><td colspan="3"><b>Match ' + (mi + 1) + "</b> &nbsp;" + m.start + "–" + m.end + "</td></tr>";
+    html += '<tr><td><span class="sw m' + (mi % 2) + '"></span>full match</td><td colspan="2">' + esc(m.text) + "</td></tr>";
+    for (const g of m.groups) {
+      const label = g.name ? esc(g.name) + ' <span class="dim">(' + g.n + ")</span>" : "group " + g.n;
+      const val = g.value === undefined ? '<span class="dim">did not take part</span>' : esc(g.value);
+      html += '<tr><td><span class="sw g' + (((g.n - 1) % 6) + 1) + '"></span>' + label + "</td><td>" + val + '</td><td class="dim">' + (g.range ? g.range[0] + "–" + g.range[1] : "") + "</td></tr>";
+    }
+    html += "</table>";
+  });
+  return html;
+}
+
+function rxExplainHtml() {
+  if (!RX.pattern) return '<div class="none">Type a pattern above.</div>';
+  let rows;
+  try { rows = explainRegex(RX.pattern); } catch (_) { return '<div class="none">No explanation for this pattern.</div>'; }
+  let html = "";
+  for (const r of rows) {
+    const sw = r.grp ? '<span class="sw g' + (((r.grp - 1) % 6) + 1) + '"></span>' : "";
+    html += '<div class="rxe" style="padding-left:' + (r.depth * 16 + (r.quant ? 14 : 0)) + 'px">' + sw + "<code>" + esc(r.token) + "</code><span>" + esc(r.desc) + "</span></div>";
+  }
+  const fl = cleanFlags(RX.flags);
+  for (const f of fl) html += '<div class="rxe"><code>' + f + "</code><span>flag — " + esc(RX_FLAG_HELP[f]) + "</span></div>";
+  return html;
+}
+
+// ---- how many lines of the session match (in slices, so the page stays responsive) ----
+function rxScheduleCount() {
+  clearTimeout(RX.timer);
+  const run = ++RX.run;
+  const box = $("rxAcross");
+  if (!box) return;
+  const c = compileRx(RX.pattern, RX.flags.replace(/[gy]/g, ""));
+  if (c.error || !RX.pattern) { box.innerHTML = '<div class="none">—</div>'; return; }
+  box.innerHTML = '<div class="none">counting…</div>';
+  RX.timer = setTimeout(() => {
+    const re = c.re, evs = S.events, total = evs.length, byType = {};
+    let hit = 0, at = 0;
+    const slice = () => {
+      if (run !== RX.run) return;
+      const stop = Math.min(total, at + 4000);
+      for (; at < stop; at++) {
+        if (re.test(evs[at].line)) { hit++; byType[evs[at].type] = (byType[evs[at].type] || 0) + 1; }
+      }
+      if (at < total) { setTimeout(slice, 0); return; }
+      if (!$("rxAcross") || run !== RX.run) return;
+      const top = Object.entries(byType).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([t, n]) => esc(t) + " " + fmtN(n)).join(" · ");
+      box.innerHTML = "<div><b>" + fmtN(hit) + "</b> of " + fmtN(total) + " lines match" + (total ? " (" + (100 * hit / total).toFixed(hit && hit / total < 0.01 ? 2 : 1) + "%)" : "") + "</div>" +
+        (top ? '<div class="dim">' + top + "</div>" : "") +
+        '<div class="rxbtns">' + (F.rx ? '<button id="rxFilterOff">Stop filtering the list</button>' : '<button id="rxFilterOn"' + (hit ? "" : " disabled") + ">Show only these lines in the list</button>") + "</div>";
+    };
+    slice();
+  }, 150);
+}
+
+function rxApplyFilter(on) {
+  if (on) {
+    const c = compileRx(RX.pattern, RX.flags.replace(/[gy]/g, ""));
+    if (c.error) return;
+    F.rx = new RegExp(c.re.source, c.re.flags.replace("d", ""));
+    F.rxText = RX.pattern;
+  } else { F.rx = null; F.rxText = ""; }
+  rxTagUpdate();
+  rebuildView();
+  rxScheduleCount();
+}
+function rxTagUpdate() {
+  const t = $("rxTag");
+  t.style.display = F.rx ? "" : "none";
+  t.title = F.rx ? "Only lines matching /" + F.rxText + "/ are listed. Click to stop." : "";
+}
+$("rxTag").addEventListener("click", () => rxApplyFilter(false));
+
+// ======================================================================
+// load an engine
+// ======================================================================
+let LOAD_OPEN = false;
+let LOAD_BUSY = false;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function ldNote(text, bad) {
+  const n = $("ldNote");
+  n.textContent = text || "";
+  n.classList.toggle("bad", !!bad);
+}
+
+function renderRecent(list) {
+  const host = $("ldRecent");
+  host.textContent = "";
+  for (const r of list) {
+    const b = document.createElement("button");
+    const dir = r.path.slice(0, r.path.length - basename(r.path).length);
+    b.innerHTML = "<b>" + esc(basename(r.path)) + "</b> <span>" + esc(dir) + (r.args ? "  " + esc(r.args) : "") + "</span>";
+    b.title = r.path + (r.args ? "  " + r.args : "");
+    b.addEventListener("click", () => { $("ldPath").value = r.path; $("ldArgs").value = r.args; $("ldPath").focus(); });
+    b.addEventListener("dblclick", () => { $("ldPath").value = r.path; $("ldArgs").value = r.args; loadEngine(); });
+    host.appendChild(b);
+  }
+}
+
+async function openLoad() {
+  LOAD_OPEN = true;
+  $("loadWrap").classList.add("open");
+  ldNote("");
+  let info = { launch: true, browse: false, recent: [] };
+  try { info = await (await fetch("/api/engines", { cache: "no-store" })).json(); } catch (_) {
+    ldNote("Could not reach the viewer program.", true);
+  }
+  renderRecent(info.recent || []);
+  if (!$("ldPath").value && info.recent && info.recent.length) {
+    $("ldPath").value = info.recent[0].path; $("ldArgs").value = info.recent[0].args;
+  }
+  $("ldBrowse").style.display = info.browse ? "" : "none";
+  const on = info.launch !== false;
+  $("ldGo").disabled = !on; $("ldPath").disabled = !on; $("ldArgs").disabled = !on; $("ldBrowse").disabled = !on;
+  if (!on) ldNote("Loading engines is switched off (the viewer was started with --no-launch).", true);
+  $("ldPath").focus(); $("ldPath").select();
+}
+
+function closeLoad() {
+  LOAD_OPEN = false;
+  $("loadWrap").classList.remove("open");
+}
+
+async function browseEngine() {
+  const b = $("ldBrowse");
+  b.disabled = true; ldNote("Waiting for the file dialog…");
+  try {
+    const r = await fetch("/api/browse", { method: "POST", headers: { "X-UCI-Token": TOKEN } });
+    if (!r.ok) { ldNote((await r.text()) || "error " + r.status, true); return; }
+    const j = await r.json();
+    ldNote("");
+    if (j.path) { $("ldPath").value = j.path; }
+  } catch (_) { ldNote("Could not reach the viewer program.", true); }
+  finally { b.disabled = false; $("ldPath").focus(); }
+}
+
+async function loadEngine() {
+  if (LOAD_BUSY) return;
+  const engine = $("ldPath").value.trim();
+  if (!engine) { ldNote("Type or paste the path of the engine.", true); return; }
+  LOAD_BUSY = true; $("ldGo").disabled = true; ldNote("Starting…");
+  let pid = 0;
+  try {
+    const r = await fetch("/api/launch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-UCI-Token": TOKEN },
+      body: JSON.stringify({ engine, args: $("ldArgs").value }),
+    });
+    if (!r.ok) { ldNote((await r.text()) || "error " + r.status, true); return; }
+    pid = (await r.json()).pid;
+  } catch (_) {
+    ldNote("Could not reach the viewer program.", true);
+    return;
+  } finally {
+    LOAD_BUSY = false; $("ldGo").disabled = false;
+  }
+  closeLoad();
+  toast("Loaded " + basename(engine));
+  await showLoaded(pid, basename(engine));
+}
+
+// Wait for the new session to appear, switch to it and say hello to the
+// engine, which is what makes it list its options.
+async function showLoaded(pid, label) {
+  for (let i = 0; i < 40; i++) {
+    await pollSessions();
+    if ((lastSessions.live || []).some(s => s.pid === pid)) break;
+    await sleep(250);
+  }
+  S.userPicked = false;
+  if (!(S.attached && String(S.attached.id) === String(pid))) attach("live", pid, label);
+  for (let i = 0; i < 40 && !(S.attached && S.attached.state === "live"); i++) await sleep(150);
+  if (S.attached && S.attached.state === "live" && String(S.attached.id) === String(pid)) {
+    await sendCommand("uci");
+    cmdEl.focus();
+  }
+}
+
+$("bLoad").addEventListener("click", openLoad);
+$("ldCancel").addEventListener("click", closeLoad);
+$("ldGo").addEventListener("click", loadEngine);
+$("ldBrowse").addEventListener("click", browseEngine);
+$("loadWrap").addEventListener("mousedown", e => { if (e.target === $("loadWrap")) closeLoad(); });
+["ldPath", "ldArgs"].forEach(id => $(id).addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); loadEngine(); }
+}));
+
+// ======================================================================
+// theme
+// ======================================================================
+let THEME = "dark";
+function PAL_NOW() { return PAL[THEME]; }
+
+function applyTheme(t, persist) {
+  THEME = t === "light" ? "light" : "dark";
+  document.documentElement.dataset.theme = THEME;
+  const p = PAL[THEME];
+  DIRS.forEach(d => { d.color = p.dirs[d.key]; });
+  GROUPS.forEach(g => { g.color = p.groups[g.key]; });
+  ERRCOL = p.dirs["engine>stderr"]; SHIMCOL = p.dirs.shim; V2ECOL = p.dirs["viewer>engine"];
+  const cs = getComputedStyle(document.documentElement);
+  const v = n => cs.getPropertyValue(n).trim();
+  SC = { lane: v("--scope-lane"), grid: v("--scope-grid"), grid2: v("--scope-grid2"), text: v("--scope-text"),
+         text2: v("--scope-text2"), eval: v("--scope-eval"), cursor: v("--scope-cursor") };
+  document.querySelectorAll("#dirChips .chip").forEach(c => c.style.setProperty("--c", DIRBY[c.dataset.key].color));
+  document.querySelectorAll("#grpChips .chip").forEach(c => c.style.setProperty("--c", GRPBY[c.dataset.key].color));
+  const b = $("bTheme");
+  b.textContent = THEME === "dark" ? "Light" : "Dark";
+  b.title = "Switch to the " + (THEME === "dark" ? "light" : "dark") + " theme (T)";
+  if (persist) { try { localStorage.setItem("uci-theme", THEME); } catch (_) { /* storage may be unavailable */ } }
+  S.dirty.list = S.dirty.scope = S.dirty.detail = true;
+}
+
+function initialTheme() {
+  try {
+    const t = localStorage.getItem("uci-theme");
+    if (t === "light" || t === "dark") return t;
+  } catch (_) { /* fall through to the system setting */ }
+  return window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+$("bTheme").addEventListener("click", () => applyTheme(THEME === "dark" ? "light" : "dark", true));
+
+// ======================================================================
+// manual entry
+// ======================================================================
+const cmdEl = $("cmd");
+const HISTORY_KEY = "uci-cmd-history";
+let cmdHist = [], histPos = -1, histDraft = "";
+try {
+  cmdHist = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]").filter(x => typeof x === "string").slice(-50);
+} catch (_) { cmdHist = []; }
+
+const DEFAULT_NOTE = "Goes straight to the engine. A chess program using this engine is not told, and still receives the replies.";
+const BASE_CMDS = ["uci", "isready", "ucinewgame", "position startpos", "position startpos moves ", "position fen ",
+  "go infinite", "go depth 20", "go movetime 5000", "go wtime 60000 btime 60000", "stop", "ponderhit", "debug on", "debug off"];
+let noteOverride = null;
+
+function canSend() {
+  const a = S.attached;
+  return !!(a && a.kind === "live" && a.state === "live" && !(a.meta && a.meta.input === false));
+}
+function noteWhy() {
+  const a = S.attached;
+  if (!a) return "Open a running session to send commands.";
+  if (a.kind === "file") return "A saved transcript is read-only.";
+  if (a.state === "connecting") return "Connecting…";
+  if (a.state !== "live") return "This session has ended.";
+  if (a.meta && a.meta.input === false) return "Manual input is switched off for this shim (input=off).";
+  return DEFAULT_NOTE;
+}
+function showNote(text, bad) { noteOverride = text ? { text, bad: !!bad } : null; updateConsole(); }
+
+function updateConsole() {
+  const ok = canSend();
+  cmdEl.disabled = !ok;
+  $("bSend").disabled = !ok;
+  document.querySelectorAll("#cmdSub .quick").forEach(b => { b.disabled = !ok; });
+  const msg = ok && noteOverride ? noteOverride : { text: noteWhy(), bad: false };
+  const n = $("cmdNote");
+  n.textContent = msg.text;
+  n.classList.toggle("bad", msg.bad);
+  cmdEl.placeholder = ok ? "type a UCI command and press Enter, for example: isready" : "";
+}
+
+function pushHistory(cmd) {
+  if (cmdHist[cmdHist.length - 1] !== cmd) cmdHist.push(cmd);
+  cmdHist = cmdHist.slice(-50);
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(cmdHist)); } catch (_) { /* optional */ }
+}
+
+async function sendCommand(text) {
+  const cmd = text.trim();
+  if (!cmd || !canSend()) return false;
+  if (/^quit(\s|$)/i.test(cmd) &&
+      !confirm("quit stops the engine and ends this session, also for any chess program using it. Send it?")) return false;
+  try {
+    const r = await fetch("/api/send?pid=" + encodeURIComponent(S.attached.id), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-UCI-Token": TOKEN },
+      body: JSON.stringify({ cmd }),
+    });
+    if (!r.ok) { showNote((await r.text()) || ("error " + r.status), true); return false; }
+  } catch (_) {
+    showNote("Could not reach the viewer program.", true);
+    return false;
+  }
+  pushHistory(cmd);
+  showNote("", false);
+  if (!S.paused) { S.follow = true; S.dirty.list = true; setState(); }
+  return true;
+}
+
+cmdEl.addEventListener("keydown", async e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const text = cmdEl.value;
+    if (await sendCommand(text)) { cmdEl.value = ""; histPos = -1; }
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    if (!cmdHist.length) return;
+    if (histPos === -1) { histDraft = cmdEl.value; histPos = cmdHist.length; }
+    histPos = Math.max(0, histPos - 1);
+    cmdEl.value = cmdHist[histPos];
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault();
+    if (histPos === -1) return;
+    histPos++;
+    if (histPos >= cmdHist.length) { histPos = -1; cmdEl.value = histDraft; } else cmdEl.value = cmdHist[histPos];
+  }
+});
+$("bSend").addEventListener("click", async () => {
+  if (await sendCommand(cmdEl.value)) { cmdEl.value = ""; histPos = -1; }
+  cmdEl.focus();
+});
+document.querySelectorAll("#cmdSub .quick").forEach(b => b.addEventListener("click", () => sendCommand(b.dataset.cmd)));
+
+function refreshCmdList() {
+  const items = BASE_CMDS.slice();
+  for (const [name, o] of S.options) {
+    const d = o.decl || {};
+    if (d.kind === "button") items.push("setoption name " + name);
+    else if (d.kind === "check") { items.push("setoption name " + name + " value true", "setoption name " + name + " value false"); }
+    else if (d.kind === "combo") (d.vars || []).forEach(x => items.push("setoption name " + name + " value " + x));
+    else items.push("setoption name " + name + " value ");
+  }
+  $("cmdlist").innerHTML = items.slice(0, 400).map(i => '<option value="' + esc(i) + '">').join("");
+  S.optDirty = false;
+}
+
+// ======================================================================
+// start
+// ======================================================================
+buildChips();
+applyTheme(initialTheme(), false);
+refreshCmdList();
+sizeCanvas();
+setState();
+pollSessions();
+setInterval(pollSessions, 2000);
+requestAnimationFrame(frame);
+window.__uci = { S, F, attach, select, rx: { suggestRegexes, explainRegex, runRx, shapePattern, captureNames } };   // handy from the developer console
+</script>
+</body>
+</html>
